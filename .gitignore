@@ -1,0 +1,83 @@
+# ============================================
+# PYTHON
+# ============================================
+# Ambiente virtual - nunca vai pro Git
+venv/
+.venv/
+env/
+.env/
+
+# Cache do Python - gerado automaticamente
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Distribuição e empacotamento
+dist/
+build/
+*.egg-info/
+*.egg
+
+# ============================================
+# VARIÁVEIS DE AMBIENTE - SEGURANÇA!
+# ============================================
+# Este é o arquivo mais importante do .gitignore
+# Senhas, chaves de API, secrets NUNCA vão pro Git
+.env
+.env.local
+.env.production
+.env.staging
+# O .env.example VAI pro Git (é só o modelo sem valores reais)
+!.env.example
+
+# ============================================
+# BANCO DE DADOS
+# ============================================
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# DOCKER
+# ============================================
+# Volumes locais do Docker
+docker/volumes/
+
+# ============================================
+# VS CODE
+# ============================================
+.vscode/settings.json
+.vscode/launch.json
+# Mas as extensões recomendadas VÃO pro Git
+!.vscode/extensions.json
+
+# ============================================
+# SISTEMA OPERACIONAL
+# ============================================
+# Mac
+.DS_Store
+# Windows
+Thumbs.db
+desktop.ini
+
+# ============================================
+# LOGS
+# ============================================
+*.log
+logs/
+
+# ============================================
+# TESTES E COBERTURA
+# ============================================
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ============================================
+# FLUTTER / DART
+# ============================================
+frontend/.dart_tool/
+frontend/build/
+frontend/.flutter-plugins
+
