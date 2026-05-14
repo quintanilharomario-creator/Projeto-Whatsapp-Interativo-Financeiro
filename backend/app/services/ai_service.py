@@ -7,9 +7,9 @@ from time import monotonic
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import AIServiceError, RateLimitError
 from app.core.logging import get_logger
-from app.infrastructure.ai.claude_provider import ClaudeProvider
 from app.infrastructure.database.models.transaction import TransactionType
 from app.services.transaction_service import TransactionService
 
@@ -40,9 +40,17 @@ def _check_rate_limit(user_id: str) -> None:
     dq.append(now)
 
 
+def _build_provider():
+    if settings.AI_PROVIDER == "openai":
+        from app.infrastructure.ai.openai_provider import OpenAIProvider
+        return OpenAIProvider()
+    from app.infrastructure.ai.claude_provider import ClaudeProvider
+    return ClaudeProvider()
+
+
 class AIService:
     def __init__(self) -> None:
-        self._provider = ClaudeProvider()
+        self._provider = _build_provider()
 
     async def analyze_transaction(
         self,

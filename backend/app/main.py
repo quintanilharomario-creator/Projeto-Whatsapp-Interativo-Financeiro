@@ -7,7 +7,9 @@ Este arquivo:
 3. Registra middlewares (CORS)
 4. Define o endpoint de health check
 """
+import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,15 +22,19 @@ from app.core.logging import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
+_ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
+
+
+def _run_migrations() -> None:
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config(str(_ALEMBIC_INI))
+    command.upgrade(cfg, "head")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Ciclo de vida da aplicação.
-    Antes do yield  → startup
-    Depois do yield → shutdown
-    """
-    # STARTUP
     setup_logging()
     logger.info(
         "aplicacao_iniciando",
@@ -37,9 +43,15 @@ async def lifespan(app: FastAPI):
         ambiente=settings.ENVIRONMENT,
     )
 
-    yield  # aplicação roda aqui
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _run_migrations)
+        logger.info("migrations_aplicadas")
+    except Exception as exc:
+        logger.error("migrations_erro", error=str(exc))
 
-    # SHUTDOWN
+    yield
+
     logger.info("aplicacao_encerrando", app=settings.APP_NAME)
 
 

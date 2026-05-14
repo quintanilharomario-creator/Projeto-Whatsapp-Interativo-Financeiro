@@ -42,6 +42,12 @@ class Settings(BaseSettings):
         "postgresql+psycopg://saas_user:dev_password_123@localhost:5432/saas_financeiro"
     )
 
+    @computed_field
+    @property
+    def database_url_sync(self) -> str:
+        """Sync URL for Alembic (psycopg3). Runtime uses asyncpg via session.py."""
+        return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg://")
+
     # ==========================================
     # REDIS
     # ==========================================
