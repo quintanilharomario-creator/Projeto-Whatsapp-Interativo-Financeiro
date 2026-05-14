@@ -4,10 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import settings
 
-_async_url = (
-    f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
-    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
-)
+# DATABASE_URL usa localhost (correto fora do Docker); troca o driver para asyncpg
+_async_url = settings.DATABASE_URL.replace("postgresql+psycopg://", "postgresql+asyncpg://")
 
 engine = create_async_engine(
     _async_url,

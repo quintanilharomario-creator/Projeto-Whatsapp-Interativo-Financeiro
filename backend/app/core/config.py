@@ -1,3 +1,4 @@
+from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +10,11 @@ class Settings(BaseSettings):
     APP_VERSION: str = "0.1.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
+
+    @computed_field
+    @property
+    def is_development(self) -> bool:
+        return self.ENVIRONMENT == "development"
 
     API_V1_STR: str = "/api/v1"
     APP_PORT: int = 8000

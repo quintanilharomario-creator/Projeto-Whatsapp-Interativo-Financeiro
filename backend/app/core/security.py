@@ -2,25 +2,20 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
-
-# Contexto de criptografia — bcrypt é o padrão da indústria
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 # ─── SENHA ────────────────────────────────────────────────────────────────────
 
 def hash_password(plain_password: str) -> str:
-    """Transforma a senha em hash irreversível para salvar no banco."""
-    return pwd_context.hash(plain_password)
+    return bcrypt.hashpw(plain_password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Compara senha digitada com o hash salvo no banco."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
 
 
 # ─── JWT ──────────────────────────────────────────────────────────────────────
