@@ -35,3 +35,6 @@ Você é um assistente financeiro no WhatsApp. Melhore a mensagem original para 
 
 Responda APENAS com a mensagem melhorada, sem explicações.\
 """
+
+# Alias used by external audits / tooling
+CLASSIFY_PROMPT = CLASSIFY_TRANSACTION_SYSTEM

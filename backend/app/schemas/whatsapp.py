@@ -34,3 +34,7 @@ class WebhookVerifyParams(BaseModel):
     hub_challenge: str = Field(alias="hub.challenge")
 
     model_config = {"populate_by_name": True}
+
+
+# Alias used by external audits / tooling
+WhatsappMessageReceive = InboundWebhookPayload
