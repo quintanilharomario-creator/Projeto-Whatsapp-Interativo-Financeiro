@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import settings
 from app.infrastructure.database.models.base import Base
-import app.infrastructure.database.models.user  # noqa: F401 — registers User with metadata
+import app.infrastructure.database.models  # noqa: F401 — registers all models with metadata
 
 config = context.config
 

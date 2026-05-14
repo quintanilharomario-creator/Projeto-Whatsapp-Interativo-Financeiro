@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+import app.infrastructure.database.models  # noqa: F401 — registers all models with Base.metadata
 from app.infrastructure.database.models.base import Base
 from app.infrastructure.database.session import get_db
 from app.main import app
