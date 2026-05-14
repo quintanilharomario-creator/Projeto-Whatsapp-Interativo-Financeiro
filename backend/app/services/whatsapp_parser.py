@@ -4,7 +4,6 @@ from decimal import Decimal
 
 from app.infrastructure.database.models.whatsapp_message import MessageType
 
-# Patterns for extracting amounts: BR format "1.500,00" or plain "1000" or "80,50"
 _AMOUNT_RE = re.compile(
     r"R?\$?\s*(\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d+(?:,\d{2})?)",
     re.IGNORECASE,
@@ -82,26 +81,21 @@ class WhatsappParser:
             )
 
         if is_expense and not is_income:
-            category = _detect_category(message_text)
-            confidence = 0.9 if amount else 0.6
             return ParsedMessage(
                 message_type=MessageType.EXPENSE,
                 amount=amount,
-                category=category,
-                confidence=confidence,
+                category=_detect_category(message_text),
+                confidence=0.9 if amount else 0.6,
             )
 
         if is_income and not is_expense:
-            category = _detect_category(message_text)
-            confidence = 0.9 if amount else 0.6
             return ParsedMessage(
                 message_type=MessageType.INCOME,
                 amount=amount,
-                category=category,
-                confidence=confidence,
+                category=_detect_category(message_text),
+                confidence=0.9 if amount else 0.6,
             )
 
-        # Ambiguous: if there's a numeric amount and no clear keyword, treat as expense
         if amount:
             return ParsedMessage(
                 message_type=MessageType.EXPENSE,
@@ -116,3 +110,23 @@ class WhatsappParser:
             category=None,
             confidence=1.0,
         )
+
+    @staticmethod
+    async def parse_with_ai(message_text: str, ai_service) -> ParsedMessage:
+        """Parse using AI first, falling back to regex on failure."""
+        try:
+            from app.infrastructure.database.models.transaction import TransactionType
+            suggestion = await ai_service.analyze_transaction(message_text)
+            msg_type = (
+                MessageType.INCOME
+                if suggestion.type == TransactionType.INCOME
+                else MessageType.EXPENSE
+            )
+            return ParsedMessage(
+                message_type=msg_type,
+                amount=suggestion.amount,
+                category=suggestion.category,
+                confidence=suggestion.confidence,
+            )
+        except Exception:
+            return WhatsappParser.parse(message_text)

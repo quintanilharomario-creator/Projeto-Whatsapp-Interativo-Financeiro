@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -74,3 +75,24 @@ async def test_user(db: AsyncSession):
         full_name="Test User",
         db=db,
     )
+
+
+@pytest.fixture
+def mock_claude_provider():
+    """Patches ClaudeProvider._call to prevent real API calls in tests."""
+    with patch("app.infrastructure.ai.claude_provider.ClaudeProvider._call") as mock_call:
+        mock_call.return_value = AsyncMock(return_value='{"type":"EXPENSE","category":"Outros","amount":null,"confidence":0.5,"explanation":"mock"}')
+        yield mock_call
+
+
+@pytest.fixture
+def mock_ai_service():
+    """Patches AIService entirely for endpoint/service integration tests."""
+    with patch("app.services.ai_service.AIService") as MockClass:
+        instance = MagicMock()
+        instance.analyze_transaction = AsyncMock()
+        instance.generate_monthly_report = AsyncMock()
+        instance.answer_question = AsyncMock()
+        instance.enhance_whatsapp_response = AsyncMock(side_effect=lambda msg, *a, **kw: msg)
+        MockClass.return_value = instance
+        yield instance

@@ -64,7 +64,10 @@ class Settings(BaseSettings):
     # ==========================================
     AI_PROVIDER: str = "openai"
 
+    OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
+
+    ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-sonnet-4-5"
 
     AI_TEMPERATURE: float = 0.3
