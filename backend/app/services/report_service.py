@@ -8,12 +8,18 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.cache.redis_client import cache_clear_pattern, cache_get, cache_set
 from app.infrastructure.database.models.transaction import Transaction, TransactionType
 
 
 class ReportService:
     @staticmethod
     async def get_balance(user_id: uuid.UUID, db: AsyncSession) -> dict:
+        cache_key = f"report:balance:{user_id}"
+        cached = await cache_get(cache_key)
+        if cached is not None:
+            return cached
+
         result = await db.execute(
             select(Transaction).where(Transaction.user_id == user_id)
         )
@@ -28,17 +34,24 @@ class ReportService:
             Decimal("0.00"),
         )
 
-        return {
+        data = {
             "total_income": total_income,
             "total_expense": total_expense,
             "balance": total_income - total_expense,
             "last_updated": datetime.now(timezone.utc),
         }
+        await cache_set(cache_key, data)
+        return data
 
     @staticmethod
     async def get_monthly_report(
         user_id: uuid.UUID, year: int, month: int, db: AsyncSession
     ) -> dict:
+        cache_key = f"report:monthly:{user_id}:{year}:{month:02d}"
+        cached = await cache_get(cache_key)
+        if cached is not None:
+            return cached
+
         last_day = calendar.monthrange(year, month)[1]
         date_from = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)
         date_to = datetime(year, month, last_day, 23, 59, 59, tzinfo=timezone.utc)
@@ -86,13 +99,15 @@ class ReportService:
                 }
             )
 
-        return {
+        data = {
             "period": f"{year}-{month:02d}",
             "total_income": total_income,
             "total_expense": total_expense,
             "balance": total_income - total_expense,
             "by_category": by_category,
         }
+        await cache_set(cache_key, data)
+        return data
 
     @staticmethod
     async def get_by_category(

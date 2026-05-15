@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AuthorizationError, InvalidAmountError, TransactionNotFoundError
+from app.infrastructure.cache.redis_client import cache_clear_pattern
 from app.infrastructure.database.models.transaction import Transaction, TransactionType
 
 
@@ -34,6 +35,7 @@ class TransactionService:
         db.add(transaction)
         await db.commit()
         await db.refresh(transaction)
+        await cache_clear_pattern(f"report:*:{user_id}")
         return transaction
 
     @staticmethod
@@ -103,6 +105,7 @@ class TransactionService:
 
         await db.commit()
         await db.refresh(transaction)
+        await cache_clear_pattern(f"report:*:{user_id}")
         return transaction
 
     @staticmethod
@@ -114,3 +117,4 @@ class TransactionService:
         transaction = await TransactionService.get_by_id(transaction_id, user_id, db)
         await db.delete(transaction)
         await db.commit()
+        await cache_clear_pattern(f"report:*:{user_id}")

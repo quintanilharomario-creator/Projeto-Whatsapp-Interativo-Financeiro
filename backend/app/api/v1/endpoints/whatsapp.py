@@ -34,6 +34,17 @@ async def receive_webhook(
     return msg
 
 
+@router.post("/webhook/async", status_code=202)
+async def receive_webhook_async(payload: InboundWebhookPayload):
+    """Enqueue WhatsApp message processing in Celery and return immediately.
+
+    Use this endpoint in production to avoid blocking the webhook response.
+    """
+    from app.workers.tasks.whatsapp_tasks import process_whatsapp_message_task
+    task = process_whatsapp_message_task.delay(payload.phone_number, payload.message_text)
+    return {"status": "queued", "task_id": task.id}
+
+
 @router.get("/messages", response_model=list[WhatsappMessageResponse])
 async def list_messages(
     phone_number: str = Query(..., min_length=5, max_length=20),
