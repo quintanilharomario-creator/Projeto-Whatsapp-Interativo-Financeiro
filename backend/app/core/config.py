@@ -91,9 +91,12 @@ class Settings(BaseSettings):
     # ==========================================
     WHATSAPP_PROVIDER: str = "cloud_api"
 
-    WHATSAPP_VERIFY_TOKEN: str = (
-        "meu_token_secreto_de_verificacao"
-    )
+    WHATSAPP_ACCESS_TOKEN: str = ""
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_BUSINESS_ACCOUNT_ID: str = ""
+    WHATSAPP_TEST_NUMBER: str = ""
+
+    WHATSAPP_VERIFY_TOKEN: str = "meu_token_secreto_de_verificacao"
 
     WHATSAPP_API_VERSION: str = "v21.0"
 
