@@ -134,15 +134,17 @@ class WhatsappService:
         within_window: bool = True,
     ) -> None:
         from app.core.config import settings
-        if not (settings.WHATSAPP_ACCESS_TOKEN and settings.WHATSAPP_PHONE_NUMBER_ID):
-            return
         try:
-            from app.infrastructure.whatsapp.cloud_api_provider import CloudAPIProvider
-            await CloudAPIProvider().send_message(
-                phone=phone_number,
-                message=response_text,
-                within_window=within_window,
-            )
+            if settings.WHATSAPP_PROVIDER == "evolution":
+                from app.infrastructure.whatsapp.evolution_provider import EvolutionProvider
+                await EvolutionProvider().send_message(phone=phone_number, message=response_text)
+            elif settings.WHATSAPP_ACCESS_TOKEN and settings.WHATSAPP_PHONE_NUMBER_ID:
+                from app.infrastructure.whatsapp.cloud_api_provider import CloudAPIProvider
+                await CloudAPIProvider().send_message(
+                    phone=phone_number,
+                    message=response_text,
+                    within_window=within_window,
+                )
         except Exception as e:
             logger.warning("whatsapp_reply_failed", phone=phone_number, error=str(e))
 
