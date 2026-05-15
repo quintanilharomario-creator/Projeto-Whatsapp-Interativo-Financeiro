@@ -4,8 +4,7 @@
 
 **Provider:** Meta Cloud API (`WHATSAPP_PROVIDER=cloud_api`)
 
-A integração via Evolution API foi removida. O projeto usa exclusivamente a
-[API oficial do WhatsApp Business (Meta Cloud API)](https://developers.facebook.com/docs/whatsapp/cloud-api).
+O projeto usa exclusivamente a [API oficial do WhatsApp Business (Meta Cloud API)](https://developers.facebook.com/docs/whatsapp/cloud-api).
 
 ---
 

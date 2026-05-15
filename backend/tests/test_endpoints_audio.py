@@ -75,7 +75,7 @@ async def test_transcribe_whatsapp_endpoint_success(
 
 
 async def test_transcribe_whatsapp_no_auth_allowed(client: AsyncClient):
-    """Audio/whatsapp endpoint does not require JWT (receives from Evolution API)."""
+    """Audio/whatsapp endpoint does not require JWT (called by the WhatsApp webhook)."""
     with (
         patch(
             "app.api.v1.endpoints.audio.WhisperProvider.transcribe",

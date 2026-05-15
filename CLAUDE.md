@@ -98,4 +98,4 @@ app/
 - **Celery** — async task queue for AI processing, audio transcription, WhatsApp messaging
 - **MinIO** (default) or S3 — file storage
 - **ChromaDB** (default) or Pinecone — semantic memory for AI context
-- **WhatsApp Cloud API** — primary messaging channel (Evolution API and Baileys also supported via `WHATSAPP_PROVIDER`)
+- **WhatsApp Cloud API** — primary messaging channel (Meta Cloud API via `WHATSAPP_PROVIDER=cloud_api`)

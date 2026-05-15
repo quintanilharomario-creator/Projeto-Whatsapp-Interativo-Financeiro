@@ -47,9 +47,6 @@ jobs:
       ENVIRONMENT: test
       DEBUG: false
       REDIS_URL: redis://localhost:6379/0
-      EVOLUTION_API_URL: http://localhost:8080
-      EVOLUTION_API_KEY: dummy-key-ci
-      EVOLUTION_INSTANCE: saas-financeiro
       WHATSAPP_PROVIDER: cloud_api
       WHATSAPP_ACCESS_TOKEN: dummy-token-ci
       WHATSAPP_PHONE_NUMBER_ID: 123456789

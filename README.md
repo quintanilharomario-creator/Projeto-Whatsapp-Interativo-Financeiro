@@ -13,7 +13,7 @@ O usuário envia mensagens como "Gastei R$50 no mercado" e o sistema registra, c
 | Banco de dados | PostgreSQL | 16+ |
 | Cache / Filas | Redis | 7+ |
 | IA | OpenAI / Anthropic | - |
-| Mensageria | Evolution API (temp) / Meta Cloud API | - |
+| Mensageria | Meta Cloud API (WhatsApp Business) | - |
 | Armazenamento | MinIO / S3 | - |
 | Containers | Docker Compose | - |
 
@@ -105,7 +105,6 @@ mypy app/                # type check
 | `GET` | `/api/v1/reports/balance` | Saldo atual |
 | `GET` | `/api/v1/reports/summary` | Resumo mensal |
 | `POST` | `/api/v1/whatsapp/webhook` | Webhook Meta Cloud API |
-| `POST` | `/api/v1/evolution/webhook` | Webhook Evolution API |
 | `POST` | `/api/v1/ai/analyze` | Analisar transação com IA |
 
 Documentação completa em `/docs` (Swagger) ou `/redoc`.
@@ -127,12 +126,12 @@ Ver `.env.example` para a lista completa.
 
 ## WhatsApp
 
-O sistema suporta dois provedores:
+O sistema usa a **Meta Cloud API** (WhatsApp Business API oficial).
 
-- **Evolution API** (ativo) — usa Baileys/WhatsApp Web. Não requer verificação empresarial da Meta.
-- **Meta Cloud API** — requer conta business verificada pela Meta.
+Configure as variáveis `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` e `WHATSAPP_BUSINESS_ACCOUNT_ID` no `.env`.
+O webhook deve ser registrado no Meta Business Manager apontando para `/api/v1/whatsapp/webhook`.
 
-Para detalhes da migração, consulte [`WHATSAPP_MIGRATION.md`](WHATSAPP_MIGRATION.md).
+Consulte [`WHATSAPP_MIGRATION.md`](WHATSAPP_MIGRATION.md) para documentação completa.
 
 ---
 
