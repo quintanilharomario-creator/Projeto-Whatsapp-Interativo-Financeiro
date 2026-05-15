@@ -51,34 +51,37 @@ services:
       retries: 3
 
   evolution:
-    image: atendai/evolution-api:latest
+    image: atendai/evolution-api:v2.2.3
     container_name: saas_evolution
     restart: unless-stopped
-    networks:
-      - default
-      - infra
     ports:
       - "8080:8080"
+    networks:
+      - infra
     environment:
       - SERVER_URL=http://localhost:8080
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
       - AUTHENTICATION_TYPE=apikey
       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-minha-chave-evolution-123}
       - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=postgresql
       - DATABASE_CONNECTION_URI=postgresql://saas_user:dev_password_123@saas_postgres:5432/evolution
       - DATABASE_SAVE_DATA_INSTANCE=true
-      - DATABASE_SAVE_DATA_NEW_MESSAGE=false
-      - DATABASE_SAVE_MESSAGE_UPDATE=false
-      - DATABASE_SAVE_DATA_CONTACTS=false
-      - DATABASE_SAVE_DATA_CHATS=false
-      - DATABASE_SAVE_DATA_LABELS=false
-      - DATABASE_SAVE_DATA_HISTORIC=false
-      - REDIS_ENABLED=false
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      - DATABASE_SAVE_DATA_LABELS=true
+      - DATABASE_SAVE_DATA_HISTORIC=true
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://saas_redis:6379/3
+      - CACHE_REDIS_PREFIX_KEY=evolution
+      - CACHE_REDIS_SAVE_INSTANCES=false
+      - LOG_LEVEL=ERROR
+      - LOG_COLOR=false
+      - DEL_INSTANCE=false
 
-networks:
-  infra:
-    external: true
-    name: docker_default
+
 
 volumes:
   postgres_data:
@@ -87,3 +90,8 @@ volumes:
     driver: local
   minio_data:
     driver: local
+
+networks:
+  infra:
+    external: true
+    name: docker_default
