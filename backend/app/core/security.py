@@ -3,7 +3,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import bcrypt
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError as JWTError  # noqa: F401 — re-exported for callers
 
 from app.core.config import settings
 
@@ -46,4 +47,9 @@ def decode_token(token: str) -> dict:
     Raises:
         JWTError: se o token for inválido ou expirado
     """
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    return jwt.decode(
+        token,
+        settings.SECRET_KEY,
+        algorithms=[settings.JWT_ALGORITHM],
+        options={"require": ["exp", "sub"]},
+    )

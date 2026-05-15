@@ -197,3 +197,56 @@ async def test_receive_webhook_empty_payload_returns_200(client: AsyncClient):
     response = await client.post("/api/v1/whatsapp/webhook", json={})
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+# ── /webhook/async ────────────────────────────────────────────────────────
+
+async def test_receive_webhook_async_queues_task(client: AsyncClient):
+    """Async webhook enqueues Celery task and returns 202 immediately."""
+    from unittest.mock import MagicMock, patch
+
+    mock_task = MagicMock()
+    mock_task.id = "celery-task-id-abc123"
+
+    with patch(
+        "app.workers.tasks.whatsapp_tasks.process_whatsapp_message_task.delay",
+        return_value=mock_task,
+    ):
+        response = await client.post(
+            "/api/v1/whatsapp/webhook/async",
+            json=_meta("+5511888888888", "Gastei R$50 no mercado"),
+        )
+
+    assert response.status_code == 202
+    data = response.json()
+    assert data["status"] == "queued"
+    assert "celery-task-id-abc123" in data["tasks"]
+
+
+async def test_receive_webhook_async_ignores_non_text(client: AsyncClient):
+    """Non-text messages are skipped — no tasks queued."""
+    payload = {
+        "object": "whatsapp_business_account",
+        "entry": [{
+            "changes": [{
+                "value": {
+                    "messages": [{
+                        "from": "+5511888888888",
+                        "id": "wamid.audio",
+                        "timestamp": "1234567890",
+                        "type": "audio",
+                    }]
+                },
+                "field": "messages",
+            }]
+        }],
+    }
+    response = await client.post("/api/v1/whatsapp/webhook/async", json=payload)
+    assert response.status_code == 202
+    assert response.json()["tasks"] == []
+
+
+async def test_receive_webhook_async_empty_payload(client: AsyncClient):
+    response = await client.post("/api/v1/whatsapp/webhook/async", json={})
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
