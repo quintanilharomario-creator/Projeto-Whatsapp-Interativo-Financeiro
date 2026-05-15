@@ -1,13 +1,11 @@
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.models.transaction import TransactionType
-from app.main import app
 from app.services.ai_service import AIService, TransactionSuggestion
 from app.services.auth_service import AuthService
 
@@ -21,6 +19,7 @@ async def auth_headers(db: AsyncSession):
         db=db,
     )
     from app.core.security import create_access_token
+
     token = create_access_token(str(user.id))
     return {"Authorization": f"Bearer {token}"}, user
 
@@ -37,7 +36,9 @@ async def test_analyze_endpoint_success(client, auth_headers):
         explanation="Recebimento de freelance",
     )
 
-    with patch.object(AIService, "analyze_transaction", new=AsyncMock(return_value=mock_suggestion)):
+    with patch.object(
+        AIService, "analyze_transaction", new=AsyncMock(return_value=mock_suggestion)
+    ):
         resp = await client.post(
             "/api/v1/ai/analyze",
             json={"text": "recebi 5000 freelance semana passada"},
@@ -71,7 +72,9 @@ async def test_insight_endpoint_success(client, auth_headers):
         "tips": ["Reduza gastos em lazer", "Poupe 20% da renda"],
     }
 
-    with patch.object(AIService, "generate_monthly_report", new=AsyncMock(return_value=mock_result)):
+    with patch.object(
+        AIService, "generate_monthly_report", new=AsyncMock(return_value=mock_result)
+    ):
         resp = await client.get(
             f"/api/v1/ai/insight/{user.id}",
             headers=headers,
@@ -86,6 +89,7 @@ async def test_insight_endpoint_success(client, auth_headers):
 @pytest.mark.asyncio
 async def test_insight_endpoint_wrong_user(client, auth_headers):
     import uuid
+
     headers, user = auth_headers
 
     other_id = uuid.uuid4()
@@ -101,8 +105,9 @@ async def test_question_endpoint_success(client, auth_headers):
     headers, user = auth_headers
 
     with patch.object(
-        AIService, "answer_question",
-        new=AsyncMock(return_value="Você gastou R$ 2.340 este mês.")
+        AIService,
+        "answer_question",
+        new=AsyncMock(return_value="Você gastou R$ 2.340 este mês."),
     ):
         resp = await client.post(
             "/api/v1/ai/question",

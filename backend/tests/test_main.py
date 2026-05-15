@@ -1,5 +1,5 @@
 """Tests for main.py: health check and application setup."""
-import pytest
+
 from httpx import AsyncClient
 
 
@@ -15,6 +15,7 @@ async def test_health_check_returns_ok(client: AsyncClient):
 
 async def test_health_check_app_name(client: AsyncClient):
     from app.core.config import settings
+
     response = await client.get("/health")
     assert response.json()["app"] == settings.APP_NAME
 
@@ -35,7 +36,6 @@ async def test_openapi_json_available(client: AsyncClient):
 async def test_app_exception_handler_returns_structured_error(client: AsyncClient):
     """AppException must be serialized as {detail: ...} with the correct status code."""
     # Trigger a 403 by passing a wrong verify token
-    from app.core.config import settings
     response = await client.get(
         "/api/v1/whatsapp/webhook",
         params={
@@ -51,7 +51,10 @@ async def test_app_exception_handler_returns_structured_error(client: AsyncClien
 async def test_cors_headers_present(client: AsyncClient):
     response = await client.options(
         "/health",
-        headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": "GET"},
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        },
     )
     # In development mode allow_origins=["*"] so any origin is accepted
     assert response.status_code in (200, 204)

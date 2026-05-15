@@ -140,4 +140,6 @@ async def test_reports_require_auth(client: AsyncClient):
     ]
     for endpoint in endpoints:
         response = await client.get(endpoint)
-        assert response.status_code == 403, f"Expected 403 for {endpoint}, got {response.status_code}"
+        assert (
+            response.status_code == 403
+        ), f"Expected 403 for {endpoint}, got {response.status_code}"

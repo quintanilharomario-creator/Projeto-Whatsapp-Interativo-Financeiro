@@ -1,4 +1,5 @@
 """Tests for audio endpoints — Whisper and WhatsApp processing are mocked."""
+
 import io
 from unittest.mock import AsyncMock, patch
 
@@ -47,15 +48,19 @@ async def test_transcribe_endpoint_no_auth(client: AsyncClient):
 async def test_transcribe_whatsapp_endpoint_success(
     client: AsyncClient, db: AsyncSession, test_user
 ):
-    with patch(
-        "app.api.v1.endpoints.audio.WhisperProvider.transcribe",
-        new=AsyncMock(return_value="Gastei R$50 no mercado"),
-    ), patch(
-        "app.services.whatsapp_service.WhatsappService._try_ai_classify",
-        new=AsyncMock(side_effect=lambda text, parsed, **kw: parsed),
-    ), patch(
-        "app.services.whatsapp_service.WhatsappService._try_enhance_response",
-        new=AsyncMock(side_effect=lambda text, *a, **kw: text),
+    with (
+        patch(
+            "app.api.v1.endpoints.audio.WhisperProvider.transcribe",
+            new=AsyncMock(return_value="Gastei R$50 no mercado"),
+        ),
+        patch(
+            "app.services.whatsapp_service.WhatsappService._try_ai_classify",
+            new=AsyncMock(side_effect=lambda text, parsed, **kw: parsed),
+        ),
+        patch(
+            "app.services.whatsapp_service.WhatsappService._try_enhance_response",
+            new=AsyncMock(side_effect=lambda text, *a, **kw: text),
+        ),
     ):
         response = await client.post(
             "/api/v1/audio/whatsapp",
@@ -71,15 +76,19 @@ async def test_transcribe_whatsapp_endpoint_success(
 
 async def test_transcribe_whatsapp_no_auth_allowed(client: AsyncClient):
     """Audio/whatsapp endpoint does not require JWT (receives from Evolution API)."""
-    with patch(
-        "app.api.v1.endpoints.audio.WhisperProvider.transcribe",
-        new=AsyncMock(return_value="Gastei R$50"),
-    ), patch(
-        "app.services.whatsapp_service.WhatsappService._try_ai_classify",
-        new=AsyncMock(side_effect=lambda text, parsed, **kw: parsed),
-    ), patch(
-        "app.services.whatsapp_service.WhatsappService._try_enhance_response",
-        new=AsyncMock(side_effect=lambda text, *a, **kw: text),
+    with (
+        patch(
+            "app.api.v1.endpoints.audio.WhisperProvider.transcribe",
+            new=AsyncMock(return_value="Gastei R$50"),
+        ),
+        patch(
+            "app.services.whatsapp_service.WhatsappService._try_ai_classify",
+            new=AsyncMock(side_effect=lambda text, parsed, **kw: parsed),
+        ),
+        patch(
+            "app.services.whatsapp_service.WhatsappService._try_enhance_response",
+            new=AsyncMock(side_effect=lambda text, *a, **kw: text),
+        ),
     ):
         response = await client.post(
             "/api/v1/audio/whatsapp",

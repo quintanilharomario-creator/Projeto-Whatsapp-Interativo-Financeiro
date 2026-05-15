@@ -1,4 +1,5 @@
 """Unit tests for Redis cache module — Redis client is mocked."""
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def reset_redis_singleton():
     import app.infrastructure.cache.redis_client as m
+
     original = m._redis
     m._redis = None
     yield
@@ -58,7 +60,9 @@ async def test_cache_delete(mock_redis):
 async def test_cache_clear_pattern(mock_redis):
     from app.infrastructure.cache.redis_client import cache_clear_pattern
 
-    mock_redis.keys = AsyncMock(return_value=["report:balance:abc", "report:monthly:abc"])
+    mock_redis.keys = AsyncMock(
+        return_value=["report:balance:abc", "report:monthly:abc"]
+    )
     mock_redis.delete = AsyncMock()
 
     count = await cache_clear_pattern("report:*:abc")

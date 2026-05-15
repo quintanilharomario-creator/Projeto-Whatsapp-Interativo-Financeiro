@@ -1,8 +1,8 @@
 """Tests for EvolutionProvider (httpx calls mocked)."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-import pytest
 
 
 def _mock_http_client(status_code: int, json_data: dict | None = None, text: str = ""):
@@ -25,6 +25,7 @@ def _mock_http_client(status_code: int, json_data: dict | None = None, text: str
 
 
 # ── create_instance ───────────────────────────────────────────────────────
+
 
 async def test_create_instance_success():
     from app.infrastructure.whatsapp.evolution_provider import EvolutionProvider
@@ -56,6 +57,7 @@ async def test_create_instance_uses_default_name():
 
 # ── get_qr_code ───────────────────────────────────────────────────────────
 
+
 async def test_get_qr_code_success():
     from app.infrastructure.whatsapp.evolution_provider import EvolutionProvider
 
@@ -85,6 +87,7 @@ async def test_get_qr_code_uses_default_name():
 
 # ── get_instance_status ───────────────────────────────────────────────────
 
+
 async def test_get_instance_status_open():
     from app.infrastructure.whatsapp.evolution_provider import EvolutionProvider
 
@@ -106,7 +109,7 @@ async def test_get_instance_status_uses_provided_name():
 
     with patch("httpx.AsyncClient", return_value=mock_cm):
         provider = EvolutionProvider()
-        result = await provider.get_instance_status("custom")
+        await provider.get_instance_status("custom")
 
     assert mock_client.get.called
     url_called = mock_client.get.call_args[0][0]
@@ -114,6 +117,7 @@ async def test_get_instance_status_uses_provided_name():
 
 
 # ── send_message ──────────────────────────────────────────────────────────
+
 
 async def test_send_message_success_returns_true():
     from app.infrastructure.whatsapp.evolution_provider import EvolutionProvider

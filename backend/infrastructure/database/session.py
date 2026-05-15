@@ -11,17 +11,17 @@ logger = get_logger(__name__)
 # Engine assíncrono — conexão real com o PostgreSQL
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG,       # mostra SQL no log apenas em DEBUG
-    pool_size=10,              # conexões simultâneas no pool
-    max_overflow=20,           # conexões extras em pico de acesso
-    pool_pre_ping=True,        # testa conexão antes de usar (evita erros)
+    echo=settings.DEBUG,  # mostra SQL no log apenas em DEBUG
+    pool_size=10,  # conexões simultâneas no pool
+    max_overflow=20,  # conexões extras em pico de acesso
+    pool_pre_ping=True,  # testa conexão antes de usar (evita erros)
 )
 
 # Fábrica de sessões
 AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
-    expire_on_commit=False,    # mantém objetos acessíveis após commit
+    expire_on_commit=False,  # mantém objetos acessíveis após commit
 )
 
 

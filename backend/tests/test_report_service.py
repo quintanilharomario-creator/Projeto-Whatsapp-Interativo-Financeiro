@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.models.transaction import TransactionType
@@ -33,8 +32,12 @@ async def test_get_balance_empty(db: AsyncSession, test_user):
 
 async def test_get_balance_with_transactions(db: AsyncSession, test_user):
     await _txn(db, test_user.id, TransactionType.INCOME, "5000.00", "Renda", "Salário")
-    await _txn(db, test_user.id, TransactionType.EXPENSE, "800.00", "Alimentação", "Mercado")
-    await _txn(db, test_user.id, TransactionType.EXPENSE, "450.00", "Transporte", "Uber")
+    await _txn(
+        db, test_user.id, TransactionType.EXPENSE, "800.00", "Alimentação", "Mercado"
+    )
+    await _txn(
+        db, test_user.id, TransactionType.EXPENSE, "450.00", "Transporte", "Uber"
+    )
 
     result = await ReportService.get_balance(test_user.id, db)
     assert result["total_income"] == Decimal("5000.00")
@@ -44,8 +47,12 @@ async def test_get_balance_with_transactions(db: AsyncSession, test_user):
 
 async def test_get_monthly_report(db: AsyncSession, test_user):
     await _txn(db, test_user.id, TransactionType.INCOME, "3000.00", "Renda", "Salário")
-    await _txn(db, test_user.id, TransactionType.EXPENSE, "200.00", "Alimentação", "Almoço")
-    await _txn(db, test_user.id, TransactionType.EXPENSE, "100.00", "Alimentação", "Jantar")
+    await _txn(
+        db, test_user.id, TransactionType.EXPENSE, "200.00", "Alimentação", "Almoço"
+    )
+    await _txn(
+        db, test_user.id, TransactionType.EXPENSE, "100.00", "Alimentação", "Jantar"
+    )
 
     result = await ReportService.get_monthly_report(
         test_user.id, NOW.year, NOW.month, db
@@ -88,8 +95,12 @@ async def test_get_by_category(db: AsyncSession, test_user):
 
 async def test_get_summary(db: AsyncSession, test_user):
     await _txn(db, test_user.id, TransactionType.INCOME, "5000.00", "Renda", "Salário")
-    await _txn(db, test_user.id, TransactionType.EXPENSE, "800.00", "Alimentação", "Mercado")
-    await _txn(db, test_user.id, TransactionType.EXPENSE, "200.00", "Transporte", "Uber")
+    await _txn(
+        db, test_user.id, TransactionType.EXPENSE, "800.00", "Alimentação", "Mercado"
+    )
+    await _txn(
+        db, test_user.id, TransactionType.EXPENSE, "200.00", "Transporte", "Uber"
+    )
 
     result = await ReportService.get_summary(test_user.id, db)
 
@@ -105,7 +116,9 @@ async def test_get_summary(db: AsyncSession, test_user):
 
 async def test_export_csv_format(db: AsyncSession, test_user):
     await _txn(db, test_user.id, TransactionType.INCOME, "1000.00", "Renda", "Salário")
-    await _txn(db, test_user.id, TransactionType.EXPENSE, "50.00", "Alimentação", "Almoço")
+    await _txn(
+        db, test_user.id, TransactionType.EXPENSE, "50.00", "Alimentação", "Almoço"
+    )
 
     csv_str = await ReportService.export_csv(test_user.id, db)
 

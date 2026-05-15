@@ -1,4 +1,5 @@
 """Tests for WhisperProvider — OpenAI calls are mocked."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import openai
@@ -9,7 +10,9 @@ from app.core.exceptions import AIServiceError
 
 @pytest.fixture
 def mock_openai_client():
-    with patch("app.infrastructure.audio.whisper_provider.openai.AsyncOpenAI") as MockClass:
+    with patch(
+        "app.infrastructure.audio.whisper_provider.openai.AsyncOpenAI"
+    ) as MockClass:
         mock_client = MagicMock()
         MockClass.return_value = mock_client
         yield mock_client

@@ -1,5 +1,5 @@
 """Unit tests for Celery tasks — all external calls are mocked."""
-import asyncio
+
 import base64
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -12,11 +12,13 @@ def _close_coro(return_value):
     def _side_effect(coro):
         coro.close()
         return return_value
+
     return _side_effect
 
 
 def test_celery_app_configured():
     from app.workers.celery_app import celery_app
+
     assert celery_app.conf.task_serializer == "json"
     assert "ai.*" in celery_app.conf.task_routes
     assert "whatsapp.*" in celery_app.conf.task_routes
@@ -24,6 +26,7 @@ def test_celery_app_configured():
 
 
 # ── analyze_transaction_task ──────────────────────────────────────────────
+
 
 def test_analyze_transaction_task_success():
     from app.workers.tasks.ai_tasks import analyze_transaction_task
@@ -35,7 +38,9 @@ def test_analyze_transaction_task_success():
         "confidence": 0.95,
         "explanation": "Compra em mercado",
     }
-    with patch("app.workers.tasks.ai_tasks.asyncio.run", side_effect=_close_coro(expected)):
+    with patch(
+        "app.workers.tasks.ai_tasks.asyncio.run", side_effect=_close_coro(expected)
+    ):
         result = analyze_transaction_task.run("Gastei R$50 no mercado")
 
     assert result["type"] == "EXPENSE"
@@ -67,7 +72,9 @@ def test_analyze_transaction_task_inner_run():
     mock_suggestion.explanation = "Mercado"
 
     with patch("app.services.ai_service.AIService") as MockAI:
-        MockAI.return_value.analyze_transaction = AsyncMock(return_value=mock_suggestion)
+        MockAI.return_value.analyze_transaction = AsyncMock(
+            return_value=mock_suggestion
+        )
         result = analyze_transaction_task.run("Gastei R$50 no mercado")
 
     assert result["type"] == "EXPENSE"
@@ -79,7 +86,9 @@ def test_generate_monthly_report_task_with_mocked_return():
     from app.workers.tasks.ai_tasks import generate_monthly_report_task
 
     expected = {"summary": "Gastou muito este mês", "total_expense": "500.00"}
-    with patch("app.workers.tasks.ai_tasks.asyncio.run", side_effect=_close_coro(expected)):
+    with patch(
+        "app.workers.tasks.ai_tasks.asyncio.run", side_effect=_close_coro(expected)
+    ):
         result = generate_monthly_report_task.run("user-uuid-123")
 
     assert result == expected
@@ -96,8 +105,13 @@ def test_generate_monthly_report_task_inner_run():
     mock_session_cm.__aenter__ = AsyncMock(return_value=mock_db)
     mock_session_cm.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("app.infrastructure.database.session.AsyncSessionLocal", return_value=mock_session_cm), \
-         patch("app.services.ai_service.AIService") as MockAI:
+    with (
+        patch(
+            "app.infrastructure.database.session.AsyncSessionLocal",
+            return_value=mock_session_cm,
+        ),
+        patch("app.services.ai_service.AIService") as MockAI,
+    ):
         MockAI.return_value.generate_monthly_report = AsyncMock(return_value=expected)
         result = generate_monthly_report_task.run("user-uuid-123")
 
@@ -119,6 +133,7 @@ def test_generate_monthly_report_task_retry_on_error():
 
 # ── process_whatsapp_message_task ─────────────────────────────────────────
 
+
 def test_process_whatsapp_message_task_success():
     from app.workers.tasks.whatsapp_tasks import process_whatsapp_message_task
 
@@ -139,8 +154,13 @@ def test_process_whatsapp_message_task_inner_run():
     fake_msg = MagicMock()
     fake_msg.id = "abc-def-123"
 
-    with patch("app.infrastructure.database.session.AsyncSessionLocal") as MockSession, \
-         patch("app.services.whatsapp_service.WhatsappService.receive_message", new_callable=AsyncMock) as mock_recv:
+    with (
+        patch("app.infrastructure.database.session.AsyncSessionLocal") as MockSession,
+        patch(
+            "app.services.whatsapp_service.WhatsappService.receive_message",
+            new_callable=AsyncMock,
+        ) as mock_recv,
+    ):
         mock_recv.return_value = fake_msg
         MockSession.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
         MockSession.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -163,6 +183,7 @@ def test_process_whatsapp_message_task_retries_on_error():
 
 
 # ── transcribe_audio_task ─────────────────────────────────────────────────
+
 
 def test_transcribe_audio_task_success():
     from app.workers.tasks.audio_tasks import transcribe_audio_task
@@ -197,7 +218,9 @@ def test_transcribe_audio_task_inner_run():
 
     audio_b64 = base64.b64encode(b"fake audio bytes").decode()
 
-    with patch("app.infrastructure.audio.whisper_provider.WhisperProvider") as MockWhisper:
+    with patch(
+        "app.infrastructure.audio.whisper_provider.WhisperProvider"
+    ) as MockWhisper:
         MockWhisper.return_value.transcribe = AsyncMock(return_value="texto transcrito")
         result = transcribe_audio_task.run(audio_b64, filename="audio.mp3")
 
@@ -205,6 +228,7 @@ def test_transcribe_audio_task_inner_run():
 
 
 # ── transcribe_and_process_task ───────────────────────────────────────────
+
 
 def test_transcribe_and_process_task_success():
     from app.workers.tasks.audio_tasks import transcribe_and_process_task
@@ -242,14 +266,25 @@ def test_transcribe_and_process_task_inner_run():
     fake_msg = MagicMock()
     fake_msg.id = "xyz-999"
 
-    with patch("app.infrastructure.audio.whisper_provider.WhisperProvider") as MockWhisper, \
-         patch("app.infrastructure.database.session.AsyncSessionLocal") as MockSession, \
-         patch("app.services.whatsapp_service.WhatsappService.receive_message", new_callable=AsyncMock) as mock_recv:
-        MockWhisper.return_value.transcribe = AsyncMock(return_value="Gastei R$30 no café")
+    with (
+        patch(
+            "app.infrastructure.audio.whisper_provider.WhisperProvider"
+        ) as MockWhisper,
+        patch("app.infrastructure.database.session.AsyncSessionLocal") as MockSession,
+        patch(
+            "app.services.whatsapp_service.WhatsappService.receive_message",
+            new_callable=AsyncMock,
+        ) as mock_recv,
+    ):
+        MockWhisper.return_value.transcribe = AsyncMock(
+            return_value="Gastei R$30 no café"
+        )
         mock_recv.return_value = fake_msg
         MockSession.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
         MockSession.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        result = transcribe_and_process_task.run(audio_b64, "+5511999999999", filename="audio.ogg")
+        result = transcribe_and_process_task.run(
+            audio_b64, "+5511999999999", filename="audio.ogg"
+        )
 
     assert result == "xyz-999"

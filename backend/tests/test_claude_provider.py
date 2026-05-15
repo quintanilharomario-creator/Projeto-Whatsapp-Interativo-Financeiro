@@ -9,7 +9,9 @@ from app.core.exceptions import AIServiceError
 
 @pytest.fixture
 def mock_anthropic_client():
-    with patch("app.infrastructure.ai.claude_provider.anthropic.AsyncAnthropic") as MockClass:
+    with patch(
+        "app.infrastructure.ai.claude_provider.anthropic.AsyncAnthropic"
+    ) as MockClass:
         mock_client = MagicMock()
         MockClass.return_value = mock_client
         yield mock_client

@@ -1,4 +1,3 @@
-import pytest
 from httpx import AsyncClient
 
 from app.core.security import create_access_token
@@ -7,7 +6,11 @@ from app.core.security import create_access_token
 async def test_register_endpoint_success(client: AsyncClient):
     response = await client.post(
         "/api/v1/auth/register",
-        json={"email": "new@test.com", "password": "Secure123!", "full_name": "New User"},
+        json={
+            "email": "new@test.com",
+            "password": "Secure123!",
+            "full_name": "New User",
+        },
     )
     assert response.status_code == 201
     data = response.json()

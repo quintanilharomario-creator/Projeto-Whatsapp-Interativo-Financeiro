@@ -156,6 +156,7 @@ async def test_ai_service_uses_openai_when_configured(mock_openai_client):
     with mock_patch("app.core.config.settings.AI_PROVIDER", "openai"):
         from app.services.ai_service import _build_provider
         from app.infrastructure.ai.openai_provider import OpenAIProvider
+
         provider = _build_provider()
         assert isinstance(provider, OpenAIProvider)
 
@@ -168,5 +169,6 @@ async def test_ai_service_uses_claude_when_configured():
     with mock_patch("app.core.config.settings.AI_PROVIDER", "claude"):
         from app.services.ai_service import _build_provider
         from app.infrastructure.ai.claude_provider import ClaudeProvider
+
         provider = _build_provider()
         assert isinstance(provider, ClaudeProvider)

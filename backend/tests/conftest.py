@@ -14,9 +14,7 @@ from app.infrastructure.database.session import get_db
 from app.main import app
 from app.services.auth_service import AuthService
 
-TEST_DATABASE_URL = (
-    "postgresql+asyncpg://saas_user:dev_password_123@localhost:5432/saas_financeiro_test"
-)
+TEST_DATABASE_URL = "postgresql+asyncpg://saas_user:dev_password_123@localhost:5432/saas_financeiro_test"
 
 
 def _make_engine():
@@ -50,7 +48,9 @@ def ensure_test_tables():
 async def db(ensure_test_tables):
     engine = _make_engine()
     async with engine.begin() as conn:
-        await conn.execute(text("TRUNCATE TABLE whatsapp_messages, users RESTART IDENTITY CASCADE"))
+        await conn.execute(
+            text("TRUNCATE TABLE whatsapp_messages, users RESTART IDENTITY CASCADE")
+        )
     async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session
     await engine.dispose()
@@ -62,7 +62,9 @@ async def client(db: AsyncSession):
         yield db
 
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
         yield ac
     app.dependency_overrides.clear()
 
@@ -85,8 +87,11 @@ def mock_redis_globally():
     mock_client.setex = AsyncMock()
     mock_client.delete = AsyncMock()
     mock_client.keys = AsyncMock(return_value=[])
-    with patch("app.infrastructure.cache.redis_client.redis.from_url", return_value=mock_client):
+    with patch(
+        "app.infrastructure.cache.redis_client.redis.from_url", return_value=mock_client
+    ):
         import app.infrastructure.cache.redis_client as m
+
         original = m._redis
         m._redis = None
         yield mock_client
@@ -96,8 +101,12 @@ def mock_redis_globally():
 @pytest.fixture
 def mock_claude_provider():
     """Patches ClaudeProvider._call to prevent real API calls in tests."""
-    with patch("app.infrastructure.ai.claude_provider.ClaudeProvider._call") as mock_call:
-        mock_call.return_value = AsyncMock(return_value='{"type":"EXPENSE","category":"Outros","amount":null,"confidence":0.5,"explanation":"mock"}')
+    with patch(
+        "app.infrastructure.ai.claude_provider.ClaudeProvider._call"
+    ) as mock_call:
+        mock_call.return_value = AsyncMock(
+            return_value='{"type":"EXPENSE","category":"Outros","amount":null,"confidence":0.5,"explanation":"mock"}'
+        )
         yield mock_call
 
 
@@ -109,6 +118,8 @@ def mock_ai_service():
         instance.analyze_transaction = AsyncMock()
         instance.generate_monthly_report = AsyncMock()
         instance.answer_question = AsyncMock()
-        instance.enhance_whatsapp_response = AsyncMock(side_effect=lambda msg, *a, **kw: msg)
+        instance.enhance_whatsapp_response = AsyncMock(
+            side_effect=lambda msg, *a, **kw: msg
+        )
         MockClass.return_value = instance
         yield instance

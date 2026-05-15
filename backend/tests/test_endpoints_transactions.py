@@ -38,7 +38,9 @@ async def test_txn(db: AsyncSession, test_user):
 
 
 async def test_create_transaction_endpoint(client: AsyncClient, auth_headers):
-    response = await client.post("/api/v1/transactions", json=TXN_PAYLOAD, headers=auth_headers)
+    response = await client.post(
+        "/api/v1/transactions", json=TXN_PAYLOAD, headers=auth_headers
+    )
     assert response.status_code == 201
     data = response.json()
     assert data["type"] == "EXPENSE"
@@ -54,7 +56,9 @@ async def test_list_transactions_endpoint(client: AsyncClient, auth_headers, tes
 
 
 async def test_get_transaction_endpoint(client: AsyncClient, auth_headers, test_txn):
-    response = await client.get(f"/api/v1/transactions/{test_txn.id}", headers=auth_headers)
+    response = await client.get(
+        f"/api/v1/transactions/{test_txn.id}", headers=auth_headers
+    )
     assert response.status_code == 200
     assert response.json()["id"] == str(test_txn.id)
 

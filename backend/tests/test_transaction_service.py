@@ -1,11 +1,14 @@
-import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import AuthorizationError, InvalidAmountError, TransactionNotFoundError
+from app.core.exceptions import (
+    AuthorizationError,
+    InvalidAmountError,
+    TransactionNotFoundError,
+)
 from app.infrastructure.database.models.transaction import TransactionType
 from app.services.auth_service import AuthService
 from app.services.transaction_service import TransactionService

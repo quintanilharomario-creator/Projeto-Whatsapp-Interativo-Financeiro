@@ -1,13 +1,13 @@
 from decimal import Decimal
 
-import pytest
 import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.database.models.transaction import Transaction
-from app.infrastructure.database.models.user import User
-from app.infrastructure.database.models.whatsapp_message import MessageType, WhatsappMessage
+from app.infrastructure.database.models.whatsapp_message import (
+    MessageType,
+    WhatsappMessage,
+)
 from app.services.auth_service import AuthService
 from app.services.whatsapp_service import WhatsappService
 
@@ -27,7 +27,9 @@ async def user_with_phone(db: AsyncSession):
     return user
 
 
-async def test_receive_expense_message_creates_transaction(db: AsyncSession, user_with_phone):
+async def test_receive_expense_message_creates_transaction(
+    db: AsyncSession, user_with_phone
+):
     msg = await WhatsappService.receive_message(
         phone_number="+5511999999999",
         message_text="Gastei R$50 no mercado",
@@ -40,7 +42,9 @@ async def test_receive_expense_message_creates_transaction(db: AsyncSession, use
     assert "50" in msg.response_text
 
 
-async def test_receive_income_message_creates_transaction(db: AsyncSession, user_with_phone):
+async def test_receive_income_message_creates_transaction(
+    db: AsyncSession, user_with_phone
+):
     msg = await WhatsappService.receive_message(
         phone_number="+5511999999999",
         message_text="Recebi R$1000 de salário",
@@ -97,7 +101,9 @@ async def test_list_messages_empty(db: AsyncSession):
 
 
 async def test_message_stored_in_db(db: AsyncSession, user_with_phone):
-    await WhatsappService.receive_message("+5511999999999", "Paguei R$100 de internet", db)
+    await WhatsappService.receive_message(
+        "+5511999999999", "Paguei R$100 de internet", db
+    )
 
     result = await db.execute(
         select(WhatsappMessage).where(WhatsappMessage.phone_number == "+5511999999999")

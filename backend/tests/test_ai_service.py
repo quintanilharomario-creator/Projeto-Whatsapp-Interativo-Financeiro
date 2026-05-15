@@ -1,16 +1,17 @@
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AIServiceError
 from app.infrastructure.database.models.transaction import TransactionType
-from app.services.ai_service import AIService, TransactionSuggestion
+from app.services.ai_service import AIService
 
 
-def _mock_provider(classify_return=None, insight_return=None, question_return=None, enhance_return=None):
+def _mock_provider(
+    classify_return=None, insight_return=None, question_return=None, enhance_return=None
+):
     provider = MagicMock()
     if classify_return is not None:
         provider.classify_transaction = AsyncMock(return_value=classify_return)
@@ -26,13 +27,15 @@ def _mock_provider(classify_return=None, insight_return=None, question_return=No
 @pytest.mark.asyncio
 async def test_analyze_transaction_expense():
     svc = AIService.__new__(AIService)
-    svc._provider = _mock_provider(classify_return={
-        "type": "EXPENSE",
-        "category": "Alimentação",
-        "amount": 50.0,
-        "confidence": 0.97,
-        "explanation": "Compra de mercado",
-    })
+    svc._provider = _mock_provider(
+        classify_return={
+            "type": "EXPENSE",
+            "category": "Alimentação",
+            "amount": 50.0,
+            "confidence": 0.97,
+            "explanation": "Compra de mercado",
+        }
+    )
 
     result = await svc.analyze_transaction("Gastei R$50 no mercado")
 
@@ -45,13 +48,15 @@ async def test_analyze_transaction_expense():
 @pytest.mark.asyncio
 async def test_analyze_transaction_income():
     svc = AIService.__new__(AIService)
-    svc._provider = _mock_provider(classify_return={
-        "type": "INCOME",
-        "category": "Renda",
-        "amount": 5000.0,
-        "confidence": 0.99,
-        "explanation": "Salário",
-    })
+    svc._provider = _mock_provider(
+        classify_return={
+            "type": "INCOME",
+            "category": "Renda",
+            "amount": 5000.0,
+            "confidence": 0.99,
+            "explanation": "Salário",
+        }
+    )
 
     result = await svc.analyze_transaction("Recebi salário de 5000")
 
@@ -62,13 +67,15 @@ async def test_analyze_transaction_income():
 @pytest.mark.asyncio
 async def test_analyze_transaction_no_amount():
     svc = AIService.__new__(AIService)
-    svc._provider = _mock_provider(classify_return={
-        "type": "EXPENSE",
-        "category": "Outros",
-        "amount": None,
-        "confidence": 0.6,
-        "explanation": "Valor não identificado",
-    })
+    svc._provider = _mock_provider(
+        classify_return={
+            "type": "EXPENSE",
+            "category": "Outros",
+            "amount": None,
+            "confidence": 0.6,
+            "explanation": "Valor não identificado",
+        }
+    )
 
     result = await svc.analyze_transaction("gastei alguma coisa")
 

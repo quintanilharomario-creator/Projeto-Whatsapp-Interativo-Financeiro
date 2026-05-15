@@ -25,12 +25,40 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       SECRET_KEY: ci-secret-key-at-least-32-characters-long
-      DATABASE_URL: postgresql+psycopg://saas_user:dev_password_123@localhost:5432/saas_financeiro_test
+      DATABASE_URL: postgresql+asyncpg://saas_user:dev_password_123@localhost:5432/saas_financeiro_test
       AI_PROVIDER: claude
       ANTHROPIC_API_KEY: dummy-key-for-ci
       WHATSAPP_VERIFY_TOKEN: ci-verify-token
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+      ENVIRONMENT: test
+      DEBUG: false
+      REDIS_URL: redis://localhost:6379/0
+      EVOLUTION_API_URL: http://localhost:8080
+      EVOLUTION_API_KEY: dummy-key-ci
+      EVOLUTION_INSTANCE: saas-financeiro
+      WHATSAPP_PROVIDER: cloud_api
+      WHATSAPP_ACCESS_TOKEN: dummy-token-ci
+      WHATSAPP_PHONE_NUMBER_ID: 123456789
+      WHATSAPP_BUSINESS_ACCOUNT_ID: 123456789
+      WHATSAPP_API_VERSION: v21.0
+      OPENAI_API_KEY: dummy-key-ci
+      MINIO_ENDPOINT: localhost:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
 
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +80,10 @@ jobs:
       - name: Format check (ruff)
         working-directory: backend
         run: ruff format --check .
+
+      - name: Run migrations
+        working-directory: backend
+        run: alembic upgrade head
 
       - name: Tests with coverage
         working-directory: backend

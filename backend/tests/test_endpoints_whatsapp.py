@@ -1,4 +1,3 @@
-import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,20 +25,26 @@ async def user_with_phone(db: AsyncSession):
 def _meta(phone: str, text: str) -> dict:
     return {
         "object": "whatsapp_business_account",
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": phone,
-                        "id": "wamid.test",
-                        "timestamp": "1234567890",
-                        "type": "text",
-                        "text": {"body": text},
-                    }]
-                },
-                "field": "messages",
-            }]
-        }],
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "messages": [
+                                {
+                                    "from": phone,
+                                    "id": "wamid.test",
+                                    "timestamp": "1234567890",
+                                    "type": "text",
+                                    "text": {"body": text},
+                                }
+                            ]
+                        },
+                        "field": "messages",
+                    }
+                ]
+            }
+        ],
     }
 
 
@@ -133,19 +138,25 @@ async def test_receive_webhook_unknown_user(client: AsyncClient):
 async def test_receive_webhook_ignores_non_text(client: AsyncClient):
     payload = {
         "object": "whatsapp_business_account",
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": "+5511777777777",
-                        "id": "wamid.audio",
-                        "timestamp": "1234567890",
-                        "type": "audio",
-                    }]
-                },
-                "field": "messages",
-            }]
-        }],
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "messages": [
+                                {
+                                    "from": "+5511777777777",
+                                    "id": "wamid.audio",
+                                    "timestamp": "1234567890",
+                                    "type": "audio",
+                                }
+                            ]
+                        },
+                        "field": "messages",
+                    }
+                ]
+            }
+        ],
     }
     response = await client.post("/api/v1/whatsapp/webhook", json=payload)
     assert response.status_code == 200
@@ -158,12 +169,16 @@ async def test_receive_webhook_ignores_non_text(client: AsyncClient):
 async def test_receive_webhook_ignores_status_update(client: AsyncClient):
     payload = {
         "object": "whatsapp_business_account",
-        "entry": [{
-            "changes": [{
-                "value": {"messaging_product": "whatsapp"},
-                "field": "messages",
-            }]
-        }],
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {"messaging_product": "whatsapp"},
+                        "field": "messages",
+                    }
+                ]
+            }
+        ],
     }
     response = await client.post("/api/v1/whatsapp/webhook", json=payload)
     assert response.status_code == 200
@@ -171,8 +186,13 @@ async def test_receive_webhook_ignores_status_update(client: AsyncClient):
 
 
 async def test_list_messages_endpoint(client: AsyncClient, user_with_phone):
-    await client.post("/api/v1/whatsapp/webhook", json=_meta("+5511888888888", "Gastei R$10 no café"))
-    await client.post("/api/v1/whatsapp/webhook", json=_meta("+5511888888888", "Gastei R$20 no almoço"))
+    await client.post(
+        "/api/v1/whatsapp/webhook", json=_meta("+5511888888888", "Gastei R$10 no café")
+    )
+    await client.post(
+        "/api/v1/whatsapp/webhook",
+        json=_meta("+5511888888888", "Gastei R$20 no almoço"),
+    )
 
     response = await client.get(
         "/api/v1/whatsapp/messages",
@@ -201,6 +221,7 @@ async def test_receive_webhook_empty_payload_returns_200(client: AsyncClient):
 
 # ── /webhook/async ────────────────────────────────────────────────────────
 
+
 async def test_receive_webhook_async_queues_task(client: AsyncClient):
     """Async webhook enqueues Celery task and returns 202 immediately."""
     from unittest.mock import MagicMock, patch
@@ -227,19 +248,25 @@ async def test_receive_webhook_async_ignores_non_text(client: AsyncClient):
     """Non-text messages are skipped — no tasks queued."""
     payload = {
         "object": "whatsapp_business_account",
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": "+5511888888888",
-                        "id": "wamid.audio",
-                        "timestamp": "1234567890",
-                        "type": "audio",
-                    }]
-                },
-                "field": "messages",
-            }]
-        }],
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "messages": [
+                                {
+                                    "from": "+5511888888888",
+                                    "id": "wamid.audio",
+                                    "timestamp": "1234567890",
+                                    "type": "audio",
+                                }
+                            ]
+                        },
+                        "field": "messages",
+                    }
+                ]
+            }
+        ],
     }
     response = await client.post("/api/v1/whatsapp/webhook/async", json=payload)
     assert response.status_code == 202
