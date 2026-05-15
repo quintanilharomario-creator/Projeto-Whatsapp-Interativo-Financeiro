@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.exceptions import AuthorizationError
 from app.infrastructure.database.session import get_db
-from app.schemas.whatsapp import InboundWebhookPayload, WhatsappMessageResponse
+from app.schemas.whatsapp import MetaWebhookPayload, WhatsappMessageResponse
 from app.services.whatsapp_service import WhatsappService
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
@@ -21,28 +21,43 @@ async def verify_webhook(
     raise AuthorizationError(detail="Token de verificação inválido")
 
 
-@router.post("/webhook", response_model=WhatsappMessageResponse, status_code=201)
+@router.post("/webhook", status_code=200)
 async def receive_webhook(
-    payload: InboundWebhookPayload,
+    payload: MetaWebhookPayload,
     db: AsyncSession = Depends(get_db),
 ):
-    msg = await WhatsappService.receive_message(
-        phone_number=payload.phone_number,
-        message_text=payload.message_text,
-        db=db,
-    )
-    return msg
+    """Receives Meta Cloud API webhook events. Always returns 200 as required by Meta."""
+    for entry in payload.entry:
+        for change in entry.changes:
+            if change.field != "messages":
+                continue
+            for meta_msg in (change.value.messages or []):
+                if meta_msg.type != "text" or not meta_msg.text:
+                    continue
+                await WhatsappService.receive_message(
+                    phone_number=meta_msg.from_,
+                    message_text=meta_msg.text.body,
+                    db=db,
+                )
+    return {"status": "ok"}
 
 
 @router.post("/webhook/async", status_code=202)
-async def receive_webhook_async(payload: InboundWebhookPayload):
-    """Enqueue WhatsApp message processing in Celery and return immediately.
-
-    Use this endpoint in production to avoid blocking the webhook response.
-    """
+async def receive_webhook_async(payload: MetaWebhookPayload):
+    """Enqueue Meta webhook processing in Celery and return immediately."""
     from app.workers.tasks.whatsapp_tasks import process_whatsapp_message_task
-    task = process_whatsapp_message_task.delay(payload.phone_number, payload.message_text)
-    return {"status": "queued", "task_id": task.id}
+
+    queued = []
+    for entry in payload.entry:
+        for change in entry.changes:
+            if change.field != "messages":
+                continue
+            for meta_msg in (change.value.messages or []):
+                if meta_msg.type != "text" or not meta_msg.text:
+                    continue
+                task = process_whatsapp_message_task.delay(meta_msg.from_, meta_msg.text.body)
+                queued.append(task.id)
+    return {"status": "queued", "tasks": queued}
 
 
 @router.get("/messages", response_model=list[WhatsappMessageResponse])

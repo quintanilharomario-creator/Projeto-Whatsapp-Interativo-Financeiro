@@ -23,6 +23,26 @@ async def user_with_phone(db: AsyncSession):
     return user
 
 
+def _meta(phone: str, text: str) -> dict:
+    return {
+        "object": "whatsapp_business_account",
+        "entry": [{
+            "changes": [{
+                "value": {
+                    "messages": [{
+                        "from": phone,
+                        "id": "wamid.test",
+                        "timestamp": "1234567890",
+                        "type": "text",
+                        "text": {"body": text},
+                    }]
+                },
+                "field": "messages",
+            }]
+        }],
+    }
+
+
 async def test_verify_webhook_valid_token(client: AsyncClient):
     response = await client.get(
         "/api/v1/whatsapp/webhook",
@@ -51,69 +71,108 @@ async def test_verify_webhook_invalid_token(client: AsyncClient):
 async def test_receive_webhook_expense(client: AsyncClient, user_with_phone):
     response = await client.post(
         "/api/v1/whatsapp/webhook",
-        json={
-            "phone_number": "+5511888888888",
-            "message_text": "Gastei R$50 no mercado",
-        },
+        json=_meta("+5511888888888", "Gastei R$50 no mercado"),
     )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["message_type"] == "EXPENSE"
-    assert data["extracted_amount"] == "50.00"
-    assert data["transaction_id"] is not None
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+    msgs = await client.get(
+        "/api/v1/whatsapp/messages", params={"phone_number": "+5511888888888"}
+    )
+    data = msgs.json()
+    assert data[0]["message_type"] == "EXPENSE"
+    assert data[0]["extracted_amount"] == "50.00"
+    assert data[0]["transaction_id"] is not None
 
 
 async def test_receive_webhook_income(client: AsyncClient, user_with_phone):
     response = await client.post(
         "/api/v1/whatsapp/webhook",
-        json={
-            "phone_number": "+5511888888888",
-            "message_text": "Recebi R$2000 de salário",
-        },
+        json=_meta("+5511888888888", "Recebi R$2000 de salário"),
     )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["message_type"] == "INCOME"
-    assert data["transaction_id"] is not None
+    assert response.status_code == 200
+
+    msgs = await client.get(
+        "/api/v1/whatsapp/messages", params={"phone_number": "+5511888888888"}
+    )
+    data = msgs.json()
+    assert data[0]["message_type"] == "INCOME"
+    assert data[0]["transaction_id"] is not None
 
 
 async def test_receive_webhook_query(client: AsyncClient, user_with_phone):
     response = await client.post(
         "/api/v1/whatsapp/webhook",
-        json={
-            "phone_number": "+5511888888888",
-            "message_text": "Qual é meu saldo?",
-        },
+        json=_meta("+5511888888888", "Qual é meu saldo?"),
     )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["message_type"] == "QUERY"
-    assert data["transaction_id"] is None
+    assert response.status_code == 200
+
+    msgs = await client.get(
+        "/api/v1/whatsapp/messages", params={"phone_number": "+5511888888888"}
+    )
+    data = msgs.json()
+    assert data[0]["message_type"] == "QUERY"
+    assert data[0]["transaction_id"] is None
 
 
 async def test_receive_webhook_unknown_user(client: AsyncClient):
     response = await client.post(
         "/api/v1/whatsapp/webhook",
-        json={
-            "phone_number": "+5500000000001",
-            "message_text": "Gastei R$30 no bar",
-        },
+        json=_meta("+5500000000001", "Gastei R$30 no bar"),
     )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["user_id"] is None
-    assert data["transaction_id"] is None
+    assert response.status_code == 200
+
+    msgs = await client.get(
+        "/api/v1/whatsapp/messages", params={"phone_number": "+5500000000001"}
+    )
+    data = msgs.json()
+    assert data[0]["user_id"] is None
+    assert data[0]["transaction_id"] is None
+
+
+async def test_receive_webhook_ignores_non_text(client: AsyncClient):
+    payload = {
+        "object": "whatsapp_business_account",
+        "entry": [{
+            "changes": [{
+                "value": {
+                    "messages": [{
+                        "from": "+5511777777777",
+                        "id": "wamid.audio",
+                        "timestamp": "1234567890",
+                        "type": "audio",
+                    }]
+                },
+                "field": "messages",
+            }]
+        }],
+    }
+    response = await client.post("/api/v1/whatsapp/webhook", json=payload)
+    assert response.status_code == 200
+    msgs = await client.get(
+        "/api/v1/whatsapp/messages", params={"phone_number": "+5511777777777"}
+    )
+    assert msgs.json() == []
+
+
+async def test_receive_webhook_ignores_status_update(client: AsyncClient):
+    payload = {
+        "object": "whatsapp_business_account",
+        "entry": [{
+            "changes": [{
+                "value": {"messaging_product": "whatsapp"},
+                "field": "messages",
+            }]
+        }],
+    }
+    response = await client.post("/api/v1/whatsapp/webhook", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
 
 
 async def test_list_messages_endpoint(client: AsyncClient, user_with_phone):
-    await client.post(
-        "/api/v1/whatsapp/webhook",
-        json={"phone_number": "+5511888888888", "message_text": "Gastei R$10 no café"},
-    )
-    await client.post(
-        "/api/v1/whatsapp/webhook",
-        json={"phone_number": "+5511888888888", "message_text": "Gastei R$20 no almoço"},
-    )
+    await client.post("/api/v1/whatsapp/webhook", json=_meta("+5511888888888", "Gastei R$10 no café"))
+    await client.post("/api/v1/whatsapp/webhook", json=_meta("+5511888888888", "Gastei R$20 no almoço"))
 
     response = await client.get(
         "/api/v1/whatsapp/messages",
@@ -134,9 +193,7 @@ async def test_list_messages_empty(client: AsyncClient):
     assert response.json() == []
 
 
-async def test_receive_webhook_invalid_payload(client: AsyncClient):
-    response = await client.post(
-        "/api/v1/whatsapp/webhook",
-        json={"phone_number": "+5511888888888"},
-    )
-    assert response.status_code == 422
+async def test_receive_webhook_empty_payload_returns_200(client: AsyncClient):
+    response = await client.post("/api/v1/whatsapp/webhook", json={})
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"

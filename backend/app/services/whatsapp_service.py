@@ -69,6 +69,8 @@ class WhatsappService:
                 response_text, str(user.id), db
             )
 
+        await WhatsappService._try_send_reply(phone_number, response_text)
+
         msg = WhatsappMessage(
             user_id=user.id if user else None,
             phone_number=phone_number,
@@ -109,6 +111,17 @@ class WhatsappService:
         except Exception as e:
             logger.debug("ai_classify_fallback", reason=str(e))
         return fallback
+
+    @staticmethod
+    async def _try_send_reply(phone_number: str, response_text: str) -> None:
+        from app.core.config import settings
+        if not (settings.WHATSAPP_ACCESS_TOKEN and settings.WHATSAPP_PHONE_NUMBER_ID):
+            return
+        try:
+            from app.infrastructure.whatsapp.cloud_api_provider import CloudAPIProvider
+            await CloudAPIProvider().send_message(phone=phone_number, message=response_text)
+        except Exception as e:
+            logger.warning("whatsapp_reply_failed", phone=phone_number, error=str(e))
 
     @staticmethod
     async def _try_enhance_response(

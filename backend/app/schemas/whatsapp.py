@@ -12,6 +12,42 @@ class InboundWebhookPayload(BaseModel):
     message_text: str = Field(..., min_length=1, max_length=4096)
 
 
+# ── Meta Cloud API webhook payload ───────────────────────────────────────────
+
+class MetaTextContent(BaseModel):
+    body: str = ""
+
+
+class MetaMessage(BaseModel):
+    from_: str = Field(alias="from", default="")
+    id: str = ""
+    timestamp: str = ""
+    type: str = ""
+    text: MetaTextContent | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class MetaValue(BaseModel):
+    messaging_product: str = ""
+    messages: list[MetaMessage] | None = None
+
+
+class MetaChange(BaseModel):
+    value: MetaValue = Field(default_factory=MetaValue)
+    field: str = ""
+
+
+class MetaEntry(BaseModel):
+    id: str = ""
+    changes: list[MetaChange] = []
+
+
+class MetaWebhookPayload(BaseModel):
+    object: str = ""
+    entry: list[MetaEntry] = []
+
+
 class WhatsappMessageResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID | None
