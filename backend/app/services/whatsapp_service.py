@@ -134,6 +134,65 @@ class WhatsappService:
         return result.scalar_one_or_none() is not None
 
     @staticmethod
+    async def transcribe_and_process(
+        phone_number: str,
+        audio_bytes: bytes,
+        db: AsyncSession,
+    ) -> WhatsappMessage:
+        """Transcribe audio via Whisper and process as a regular message.
+
+        Falls back to a stored error record (with a friendly reply) if
+        the API key is missing or transcription fails for any reason.
+        """
+        from app.core.config import settings
+        from app.core.exceptions import AIServiceError
+        from app.infrastructure.audio.whisper_provider import WhisperProvider
+
+        _FALLBACK = (
+            "Desculpe, não consegui entender o áudio. "
+            "Por favor, envie uma mensagem de texto."
+        )
+
+        if not settings.OPENAI_API_KEY:
+            logger.warning("audio_no_openai_key", phone=phone_number)
+            await WhatsappService._try_send_reply(phone_number, _FALLBACK)
+            msg = WhatsappMessage(
+                phone_number=phone_number,
+                message_text="[áudio — OPENAI_API_KEY não configurada]",
+                message_type=MessageType.OTHER,
+                response_text=_FALLBACK,
+            )
+            db.add(msg)
+            await db.commit()
+            await db.refresh(msg)
+            return msg
+
+        try:
+            text = await WhisperProvider().transcribe(audio_bytes, filename="audio.ogg")
+            logger.info("audio_transcribed", phone=phone_number, preview=text[:50])
+        except (AIServiceError, Exception) as exc:
+            logger.warning(
+                "audio_transcription_failed", phone=phone_number, error=str(exc)
+            )
+            await WhatsappService._try_send_reply(phone_number, _FALLBACK)
+            msg = WhatsappMessage(
+                phone_number=phone_number,
+                message_text="[áudio — transcrição falhou]",
+                message_type=MessageType.OTHER,
+                response_text=_FALLBACK,
+            )
+            db.add(msg)
+            await db.commit()
+            await db.refresh(msg)
+            return msg
+
+        return await WhatsappService.receive_message(
+            phone_number=phone_number,
+            message_text=text,
+            db=db,
+        )
+
+    @staticmethod
     async def _try_send_reply(
         phone_number: str,
         response_text: str,

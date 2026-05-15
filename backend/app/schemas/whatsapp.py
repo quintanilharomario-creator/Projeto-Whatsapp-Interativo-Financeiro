@@ -19,12 +19,18 @@ class MetaTextContent(BaseModel):
     body: str = ""
 
 
+class MetaAudioMessage(BaseModel):
+    id: str = ""
+    mime_type: str = ""
+
+
 class MetaMessage(BaseModel):
     from_: str = Field(alias="from", default="")
     id: str = ""
     timestamp: str = ""
     type: str = ""
     text: MetaTextContent | None = None
+    audio: MetaAudioMessage | None = None
 
     model_config = {"populate_by_name": True}
 

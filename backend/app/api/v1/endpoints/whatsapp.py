@@ -3,9 +3,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import AuthorizationError
+from app.core.logging import get_logger
 from app.infrastructure.database.session import get_db
+from app.infrastructure.whatsapp.media_downloader import download_audio
 from app.schemas.whatsapp import MetaWebhookPayload, WhatsappMessageResponse
 from app.services.whatsapp_service import WhatsappService
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
@@ -32,13 +36,34 @@ async def receive_webhook(
             if change.field != "messages":
                 continue
             for meta_msg in change.value.messages or []:
-                if meta_msg.type != "text" or not meta_msg.text:
-                    continue
-                await WhatsappService.receive_message(
-                    phone_number=meta_msg.from_,
-                    message_text=meta_msg.text.body,
-                    db=db,
-                )
+                if meta_msg.type == "text" and meta_msg.text:
+                    await WhatsappService.receive_message(
+                        phone_number=meta_msg.from_,
+                        message_text=meta_msg.text.body,
+                        db=db,
+                    )
+
+                elif meta_msg.type == "audio" and meta_msg.audio and meta_msg.audio.id:
+                    try:
+                        audio_bytes = await download_audio(meta_msg.audio.id)
+                    except Exception as exc:
+                        logger.warning(
+                            "audio_download_failed",
+                            media_id=meta_msg.audio.id,
+                            error=str(exc),
+                        )
+                        await WhatsappService._try_send_reply(
+                            meta_msg.from_,
+                            "Não consegui baixar o áudio. Tente novamente.",
+                        )
+                        continue
+
+                    await WhatsappService.transcribe_and_process(
+                        phone_number=meta_msg.from_,
+                        audio_bytes=audio_bytes,
+                        db=db,
+                    )
+
     return {"status": "ok"}
 
 
