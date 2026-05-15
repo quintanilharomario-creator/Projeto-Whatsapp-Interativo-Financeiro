@@ -51,7 +51,7 @@ services:
       retries: 3
 
   evolution:
-    image: atendai/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:latest
     container_name: saas_evolution
     restart: unless-stopped
     ports:
@@ -79,7 +79,12 @@ services:
       - CACHE_REDIS_SAVE_INSTANCES=false
       - LOG_LEVEL=ERROR
       - LOG_COLOR=false
+      - LOG_BAILEYS=warn
       - DEL_INSTANCE=false
+      - QRCODE_LIMIT=30
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1030444778
+      - CONFIG_SESSION_PHONE_CLIENT=Evolution API
+      - CONFIG_SESSION_PHONE_NAME=Chrome
 
 
 
