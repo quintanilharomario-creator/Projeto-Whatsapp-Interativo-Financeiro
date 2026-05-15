@@ -70,7 +70,9 @@ async def export_csv(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    csv_content = await ReportService.export_csv(current_user.id, db, date_from, date_to)
+    csv_content = await ReportService.export_csv(
+        current_user.id, db, date_from, date_to
+    )
     return PlainTextResponse(
         content=csv_content,
         media_type="text/csv",

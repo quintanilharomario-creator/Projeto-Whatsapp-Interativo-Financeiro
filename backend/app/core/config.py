@@ -1,4 +1,4 @@
-from pydantic import computed_field
+from pydantic import computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,8 +23,16 @@ class Settings(BaseSettings):
     # ==========================================
     # SECURITY
     # ==========================================
-    SECRET_KEY: str = "super-secret-key-change-in-production"
+    # Generate with: openssl rand -hex 32
+    SECRET_KEY: str = "dev-secret-key-replace-before-production-deployment"
     JWT_ALGORITHM: str = "HS256"
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def secret_key_must_be_strong(cls, v: str, info) -> str:
+        if len(v) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters")
+        return v
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -46,7 +54,9 @@ class Settings(BaseSettings):
     @property
     def database_url_sync(self) -> str:
         """Sync URL for Alembic (psycopg3). Runtime uses asyncpg via session.py."""
-        return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg://")
+        return self.DATABASE_URL.replace(
+            "postgresql+asyncpg://", "postgresql+psycopg://"
+        )
 
     # ==========================================
     # REDIS
@@ -163,4 +173,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

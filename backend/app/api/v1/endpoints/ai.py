@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.core.exceptions import AIServiceError, AuthorizationError
+from app.core.exceptions import AuthorizationError
 from app.infrastructure.database.models.user import User
 from app.infrastructure.database.session import get_db
 from app.schemas.ai import (

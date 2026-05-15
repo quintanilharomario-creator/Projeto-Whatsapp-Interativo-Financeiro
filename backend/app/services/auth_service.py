@@ -10,7 +10,12 @@ from app.core.exceptions import (
     InvalidTokenError,
     UserNotFoundError,
 )
-from app.core.security import create_access_token, decode_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
 from app.infrastructure.database.models.user import User
 
 

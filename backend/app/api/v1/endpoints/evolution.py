@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,7 @@ router = APIRouter(prefix="/evolution", tags=["evolution"])
 
 
 # ── Instance endpoints ─────────────────────────────────────────────────────
+
 
 @router.post("/instance/create", status_code=201)
 async def create_instance():
@@ -58,6 +59,7 @@ async def get_instance_status():
 
 
 # ── Webhook ────────────────────────────────────────────────────────────────
+
 
 class _EvolutionMessageKey(BaseModel):
     remoteJid: str = ""

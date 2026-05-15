@@ -66,7 +66,7 @@ services:
       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-minha-chave-evolution-123}
       - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=postgresql
-      - DATABASE_CONNECTION_URI=postgresql://saas_user:dev_password_123@saas_postgres:5432/evolution
+      - DATABASE_CONNECTION_URI=postgresql://${POSTGRES_USER:-saas_user}:${POSTGRES_PASSWORD:-dev_password_123}@saas_postgres:5432/evolution
       - DATABASE_SAVE_DATA_INSTANCE=true
       - DATABASE_SAVE_DATA_NEW_MESSAGE=true
       - DATABASE_SAVE_DATA_CONTACTS=true
@@ -85,8 +85,6 @@ services:
       - CONFIG_SESSION_PHONE_VERSION=2.3000.1030444778
       - CONFIG_SESSION_PHONE_CLIENT=Evolution API
       - CONFIG_SESSION_PHONE_NAME=Chrome
-
-
 
 volumes:
   postgres_data:

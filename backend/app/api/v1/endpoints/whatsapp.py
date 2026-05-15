@@ -31,7 +31,7 @@ async def receive_webhook(
         for change in entry.changes:
             if change.field != "messages":
                 continue
-            for meta_msg in (change.value.messages or []):
+            for meta_msg in change.value.messages or []:
                 if meta_msg.type != "text" or not meta_msg.text:
                     continue
                 await WhatsappService.receive_message(
@@ -52,10 +52,12 @@ async def receive_webhook_async(payload: MetaWebhookPayload):
         for change in entry.changes:
             if change.field != "messages":
                 continue
-            for meta_msg in (change.value.messages or []):
+            for meta_msg in change.value.messages or []:
                 if meta_msg.type != "text" or not meta_msg.text:
                     continue
-                task = process_whatsapp_message_task.delay(meta_msg.from_, meta_msg.text.body)
+                task = process_whatsapp_message_task.delay(
+                    meta_msg.from_, meta_msg.text.body
+                )
                 queued.append(task.id)
     return {"status": "queued", "tasks": queued}
 
@@ -66,4 +68,6 @@ async def list_messages(
     limit: int = Query(default=20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    return await WhatsappService.list_messages(phone_number=phone_number, db=db, limit=limit)
+    return await WhatsappService.list_messages(
+        phone_number=phone_number, db=db, limit=limit
+    )

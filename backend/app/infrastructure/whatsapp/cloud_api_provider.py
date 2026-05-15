@@ -60,7 +60,9 @@ class CloudAPIProvider:
     async def _post(self, payload: dict, phone: str, msg_type: str) -> bool:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(self._url, headers=self._headers, json=payload)
+                response = await client.post(
+                    self._url, headers=self._headers, json=payload
+                )
             if response.status_code == 200:
                 logger.info("whatsapp_message_sent", phone=phone, type=msg_type)
                 return True

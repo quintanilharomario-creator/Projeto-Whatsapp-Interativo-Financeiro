@@ -26,7 +26,9 @@ class ClaudeProvider:
         )
         self._model = settings.ANTHROPIC_MODEL
 
-    async def _call(self, system: str, user_message: str, max_tokens: int = 1024) -> str:
+    async def _call(
+        self, system: str, user_message: str, max_tokens: int = 1024
+    ) -> str:
         try:
             response = await self._client.messages.create(
                 model=self._model,
@@ -43,12 +45,18 @@ class ClaudeProvider:
             return response.content[0].text
         except anthropic.RateLimitError as e:
             logger.warning("claude_rate_limit", error=str(e))
-            raise AIServiceError("Rate limit atingido. Tente novamente em alguns minutos.")
+            raise AIServiceError(
+                "Rate limit atingido. Tente novamente em alguns minutos."
+            )
         except anthropic.AuthenticationError as e:
             logger.error("claude_auth_error", error=str(e))
             raise AIServiceError("Chave de API do Claude inválida.")
         except anthropic.APIError as e:
-            logger.error("claude_api_error", status_code=getattr(e, "status_code", None), error=str(e))
+            logger.error(
+                "claude_api_error",
+                status_code=getattr(e, "status_code", None),
+                error=str(e),
+            )
             raise AIServiceError(f"Erro na API do Claude: {e}")
 
     async def classify_transaction(self, text: str) -> dict[str, Any]:
@@ -61,9 +69,13 @@ class ClaudeProvider:
             return json.loads(raw)
         except json.JSONDecodeError:
             logger.warning("claude_json_parse_error", raw=raw[:200])
-            raise AIServiceError("Resposta inválida do Claude ao classificar transação.")
+            raise AIServiceError(
+                "Resposta inválida do Claude ao classificar transação."
+            )
 
-    async def generate_financial_insight(self, transactions: list[dict]) -> dict[str, Any]:
+    async def generate_financial_insight(
+        self, transactions: list[dict]
+    ) -> dict[str, Any]:
         prompt = (
             f"Transações do mês:\n"
             f"{json.dumps(transactions, ensure_ascii=False, indent=2)}\n\n"

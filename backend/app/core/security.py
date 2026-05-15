@@ -11,6 +11,7 @@ from app.core.config import settings
 
 # ─── SENHA ────────────────────────────────────────────────────────────────────
 
+
 def hash_password(plain_password: str) -> str:
     return bcrypt.hashpw(plain_password.encode(), bcrypt.gensalt()).decode()
 
@@ -21,7 +22,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # ─── JWT ──────────────────────────────────────────────────────────────────────
 
-def create_access_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
+
+def create_access_token(
+    subject: str | Any, expires_delta: timedelta | None = None
+) -> str:
     """
     Cria token JWT de acesso.
 

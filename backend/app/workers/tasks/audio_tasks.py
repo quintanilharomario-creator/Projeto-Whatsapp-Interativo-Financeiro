@@ -4,11 +4,15 @@ import base64
 from app.workers.celery_app import celery_app
 
 
-@celery_app.task(name="audio.transcribe", bind=True, max_retries=2, default_retry_delay=60)
+@celery_app.task(
+    name="audio.transcribe", bind=True, max_retries=2, default_retry_delay=60
+)
 def transcribe_audio_task(self, audio_b64: str, filename: str = "audio.ogg") -> str:
     """Transcribe base64-encoded audio bytes and return the transcribed text."""
+
     async def _run() -> str:
         from app.infrastructure.audio.whisper_provider import WhisperProvider
+
         audio_bytes = base64.b64decode(audio_b64)
         provider = WhisperProvider()
         return await provider.transcribe(audio_bytes, filename=filename)
@@ -29,6 +33,7 @@ def transcribe_and_process_task(
     self, audio_b64: str, phone_number: str, filename: str = "audio.ogg"
 ) -> str:
     """Transcribe audio then process as WhatsApp message. Returns WhatsappMessage UUID."""
+
     async def _run() -> str:
         from app.infrastructure.audio.whisper_provider import WhisperProvider
         from app.infrastructure.database.session import AsyncSessionLocal

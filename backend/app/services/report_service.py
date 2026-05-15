@@ -8,7 +8,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.cache.redis_client import cache_clear_pattern, cache_get, cache_set
+from app.infrastructure.cache.redis_client import cache_get, cache_set
 from app.infrastructure.database.models.transaction import Transaction, TransactionType
 
 
@@ -79,12 +79,18 @@ class ReportService:
                 continue
             cat = t.category
             if cat not in categories:
-                categories[cat] = {"category": cat, "total": Decimal("0.00"), "count": 0}
+                categories[cat] = {
+                    "category": cat,
+                    "total": Decimal("0.00"),
+                    "count": 0,
+                }
             categories[cat]["total"] += t.amount
             categories[cat]["count"] += 1
 
         by_category = []
-        for cat_data in sorted(categories.values(), key=lambda x: x["total"], reverse=True):
+        for cat_data in sorted(
+            categories.values(), key=lambda x: x["total"], reverse=True
+        ):
             pct = (
                 float(cat_data["total"] / total_expense * 100)
                 if total_expense > 0
@@ -129,15 +135,23 @@ class ReportService:
         for t in transactions:
             cat = t.category
             if cat not in categories:
-                categories[cat] = {"category": cat, "total": Decimal("0.00"), "count": 0}
+                categories[cat] = {
+                    "category": cat,
+                    "total": Decimal("0.00"),
+                    "count": 0,
+                }
             categories[cat]["total"] += t.amount
             categories[cat]["count"] += 1
 
         grand_total = sum((c["total"] for c in categories.values()), Decimal("0.00"))
 
         items = []
-        for cat_data in sorted(categories.values(), key=lambda x: x["total"], reverse=True):
-            pct = float(cat_data["total"] / grand_total * 100) if grand_total > 0 else 0.0
+        for cat_data in sorted(
+            categories.values(), key=lambda x: x["total"], reverse=True
+        ):
+            pct = (
+                float(cat_data["total"] / grand_total * 100) if grand_total > 0 else 0.0
+            )
             items.append(
                 {
                     "category": cat_data["category"],
@@ -170,8 +184,12 @@ class ReportService:
             Decimal("0.00"),
         )
 
-        month_expenses = [t for t in month_transactions if t.type == TransactionType.EXPENSE]
-        month_incomes = [t for t in month_transactions if t.type == TransactionType.INCOME]
+        month_expenses = [
+            t for t in month_transactions if t.type == TransactionType.EXPENSE
+        ]
+        month_incomes = [
+            t for t in month_transactions if t.type == TransactionType.INCOME
+        ]
 
         largest_expense = max((t.amount for t in month_expenses), default=None)
         largest_income = max((t.amount for t in month_incomes), default=None)

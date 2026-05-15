@@ -14,6 +14,7 @@ class InboundWebhookPayload(BaseModel):
 
 # ── Meta Cloud API webhook payload ───────────────────────────────────────────
 
+
 class MetaTextContent(BaseModel):
     body: str = ""
 

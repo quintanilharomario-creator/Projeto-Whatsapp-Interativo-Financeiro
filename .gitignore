@@ -71,8 +71,24 @@ logs/
 # TESTES E COBERTURA
 # ============================================
 .coverage
+.coverage.*
 htmlcov/
 .pytest_cache/
+coverage.xml
+*.py,cover
+
+# ============================================
+# LINTING / TYPE CHECKING
+# ============================================
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# ============================================
+# BACKUPS
+# ============================================
+*.bak
+*.orig
 
 # ============================================
 # FLUTTER / DART

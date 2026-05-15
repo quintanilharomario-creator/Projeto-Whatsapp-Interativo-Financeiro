@@ -13,7 +13,9 @@ router = APIRouter(prefix="/audio", tags=["Áudio"])
 
 @router.post("/transcribe")
 async def transcribe_audio(
-    file: UploadFile = File(..., description="Arquivo de áudio (ogg, mp3, wav, m4a, etc.)"),
+    file: UploadFile = File(
+        ..., description="Arquivo de áudio (ogg, mp3, wav, m4a, etc.)"
+    ),
     current_user: User = Depends(get_current_user),
 ):
     """Transcribe an audio file to text using Whisper."""
@@ -25,7 +27,9 @@ async def transcribe_audio(
 
 @router.post("/whatsapp", response_model=WhatsappMessageResponse, status_code=201)
 async def transcribe_and_process(
-    file: UploadFile = File(..., description="Áudio do WhatsApp para transcrever e processar"),
+    file: UploadFile = File(
+        ..., description="Áudio do WhatsApp para transcrever e processar"
+    ),
     phone_number: str = Form(..., min_length=5, max_length=20),
     db: AsyncSession = Depends(get_db),
 ):

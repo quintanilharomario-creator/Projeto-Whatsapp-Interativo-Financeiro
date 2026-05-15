@@ -25,14 +25,35 @@ _QUERY_KEYWORDS = re.compile(
 )
 
 _CATEGORY_MAP = {
-    re.compile(r"\b(mercado|supermercado|feira|aliment|comida|almoço|jantar|café|lanche|restaurante|ifood|delivery)\b", re.IGNORECASE): "Alimentação",
-    re.compile(r"\b(uber|taxi|táxi|ônibus|onibus|metrô|metro|gasolina|combustível|combustivel|carro|estacionamento)\b", re.IGNORECASE): "Transporte",
-    re.compile(r"\b(luz|energia|água|agua|internet|telefone|cel|aluguel|condomínio|condominio|iptu)\b", re.IGNORECASE): "Moradia",
-    re.compile(r"\b(farmácia|farmacia|médico|medico|hospital|plano de saúde|plano saúde|consulta)\b", re.IGNORECASE): "Saúde",
-    re.compile(r"\b(netflix|spotify|amazon|cinema|jogo|lazer|bar|show|entretenimento)\b", re.IGNORECASE): "Lazer",
-    re.compile(r"\b(salário|salario|freela|freelance|renda|serviço prestado)\b", re.IGNORECASE): "Renda",
-    re.compile(r"\b(escola|faculdade|curso|livro|material escolar)\b", re.IGNORECASE): "Educação",
-    re.compile(r"\b(roupa|sapato|shopping|vestuário|vestuario)\b", re.IGNORECASE): "Vestuário",
+    re.compile(
+        r"\b(mercado|supermercado|feira|aliment|comida|almoço|jantar|café|lanche|restaurante|ifood|delivery)\b",
+        re.IGNORECASE,
+    ): "Alimentação",
+    re.compile(
+        r"\b(uber|taxi|táxi|ônibus|onibus|metrô|metro|gasolina|combustível|combustivel|carro|estacionamento)\b",
+        re.IGNORECASE,
+    ): "Transporte",
+    re.compile(
+        r"\b(luz|energia|água|agua|internet|telefone|cel|aluguel|condomínio|condominio|iptu)\b",
+        re.IGNORECASE,
+    ): "Moradia",
+    re.compile(
+        r"\b(farmácia|farmacia|médico|medico|hospital|plano de saúde|plano saúde|consulta)\b",
+        re.IGNORECASE,
+    ): "Saúde",
+    re.compile(
+        r"\b(netflix|spotify|amazon|cinema|jogo|lazer|bar|show|entretenimento)\b",
+        re.IGNORECASE,
+    ): "Lazer",
+    re.compile(
+        r"\b(salário|salario|freela|freelance|renda|serviço prestado)\b", re.IGNORECASE
+    ): "Renda",
+    re.compile(
+        r"\b(escola|faculdade|curso|livro|material escolar)\b", re.IGNORECASE
+    ): "Educação",
+    re.compile(
+        r"\b(roupa|sapato|shopping|vestuário|vestuario)\b", re.IGNORECASE
+    ): "Vestuário",
 }
 
 
@@ -116,6 +137,7 @@ class WhatsappParser:
         """Parse using AI first, falling back to regex on failure."""
         try:
             from app.infrastructure.database.models.transaction import TransactionType
+
             suggestion = await ai_service.analyze_transaction(message_text)
             msg_type = (
                 MessageType.INCOME

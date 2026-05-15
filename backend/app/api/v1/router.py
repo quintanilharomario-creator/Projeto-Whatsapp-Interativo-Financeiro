@@ -1,6 +1,14 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import ai, audio, auth, evolution, reports, transactions, whatsapp
+from app.api.v1.endpoints import (
+    ai,
+    audio,
+    auth,
+    evolution,
+    reports,
+    transactions,
+    whatsapp,
+)
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth.router)

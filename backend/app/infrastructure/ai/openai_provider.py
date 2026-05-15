@@ -26,7 +26,9 @@ class OpenAIProvider:
         )
         self._model = settings.OPENAI_MODEL
 
-    async def _call(self, system: str, user_message: str, max_tokens: int = 1024) -> str:
+    async def _call(
+        self, system: str, user_message: str, max_tokens: int = 1024
+    ) -> str:
         try:
             response = await self._client.chat.completions.create(
                 model=self._model,
@@ -46,12 +48,18 @@ class OpenAIProvider:
             return response.choices[0].message.content or ""
         except openai.RateLimitError as e:
             logger.warning("openai_rate_limit", error=str(e))
-            raise AIServiceError("Rate limit atingido. Tente novamente em alguns minutos.")
+            raise AIServiceError(
+                "Rate limit atingido. Tente novamente em alguns minutos."
+            )
         except openai.AuthenticationError as e:
             logger.error("openai_auth_error", error=str(e))
             raise AIServiceError("Chave de API do OpenAI inválida.")
         except openai.APIError as e:
-            logger.error("openai_api_error", status_code=getattr(e, "status_code", None), error=str(e))
+            logger.error(
+                "openai_api_error",
+                status_code=getattr(e, "status_code", None),
+                error=str(e),
+            )
             raise AIServiceError(f"Erro na API do OpenAI: {e}")
 
     async def classify_transaction(self, text: str) -> dict[str, Any]:
@@ -64,9 +72,13 @@ class OpenAIProvider:
             return json.loads(raw)
         except json.JSONDecodeError:
             logger.warning("openai_json_parse_error", raw=raw[:200])
-            raise AIServiceError("Resposta inválida do OpenAI ao classificar transação.")
+            raise AIServiceError(
+                "Resposta inválida do OpenAI ao classificar transação."
+            )
 
-    async def generate_financial_insight(self, transactions: list[dict]) -> dict[str, Any]:
+    async def generate_financial_insight(
+        self, transactions: list[dict]
+    ) -> dict[str, Any]:
         prompt = (
             f"Transações do mês:\n"
             f"{json.dumps(transactions, ensure_ascii=False, indent=2)}\n\n"

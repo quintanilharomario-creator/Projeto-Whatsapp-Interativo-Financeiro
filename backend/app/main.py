@@ -7,6 +7,7 @@ Este arquivo:
 3. Registra middlewares (CORS)
 4. Define o endpoint de health check
 """
+
 import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -68,10 +69,7 @@ app = FastAPI(
 # CORS — permite o frontend chamar a API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=(
-        ["*"] if settings.is_development
-        else [settings.FRONTEND_URL]
-    ),
+    allow_origins=(["*"] if settings.is_development else [settings.FRONTEND_URL]),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

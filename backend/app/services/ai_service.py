@@ -43,8 +43,10 @@ def _check_rate_limit(user_id: str) -> None:
 def _build_provider():
     if settings.AI_PROVIDER == "openai":
         from app.infrastructure.ai.openai_provider import OpenAIProvider
+
         return OpenAIProvider()
     from app.infrastructure.ai.claude_provider import ClaudeProvider
+
     return ClaudeProvider()
 
 
@@ -109,8 +111,12 @@ class AIService:
                 "tips": ["Registre suas despesas para obter análises personalizadas."],
             }
 
-        total_income = sum(float(t.amount) for t in transactions if t.type == TransactionType.INCOME)
-        total_expense = sum(float(t.amount) for t in transactions if t.type == TransactionType.EXPENSE)
+        total_income = sum(
+            float(t.amount) for t in transactions if t.type == TransactionType.INCOME
+        )
+        total_expense = sum(
+            float(t.amount) for t in transactions if t.type == TransactionType.EXPENSE
+        )
 
         context = {
             "mes": now.strftime("%B/%Y"),
@@ -146,8 +152,12 @@ class AIService:
             date_from=date_from,
         )
 
-        total_income = sum(float(t.amount) for t in transactions if t.type == TransactionType.INCOME)
-        total_expense = sum(float(t.amount) for t in transactions if t.type == TransactionType.EXPENSE)
+        total_income = sum(
+            float(t.amount) for t in transactions if t.type == TransactionType.INCOME
+        )
+        total_expense = sum(
+            float(t.amount) for t in transactions if t.type == TransactionType.EXPENSE
+        )
 
         context = {
             "saldo_mes": round(total_income - total_expense, 2),
@@ -183,7 +193,9 @@ class AIService:
                 date_from=date_from,
             )
             total_expense = sum(
-                float(t.amount) for t in transactions if t.type == TransactionType.EXPENSE
+                float(t.amount)
+                for t in transactions
+                if t.type == TransactionType.EXPENSE
             )
             context = {
                 "gasto_total_mes": round(total_expense, 2),

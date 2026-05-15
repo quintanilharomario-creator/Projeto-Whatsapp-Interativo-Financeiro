@@ -8,7 +8,18 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-_SUPPORTED_FORMATS = {"flac", "m4a", "mp3", "mp4", "mpeg", "mpga", "oga", "ogg", "wav", "webm"}
+_SUPPORTED_FORMATS = {
+    "flac",
+    "m4a",
+    "mp3",
+    "mp4",
+    "mpeg",
+    "mpga",
+    "oga",
+    "ogg",
+    "wav",
+    "webm",
+}
 
 
 class WhisperProvider:
@@ -47,10 +58,18 @@ class WhisperProvider:
             return text.strip()
         except openai.RateLimitError as e:
             logger.warning("whisper_rate_limit", error=str(e))
-            raise AIServiceError("Rate limit atingido no Whisper. Tente novamente em alguns minutos.")
+            raise AIServiceError(
+                "Rate limit atingido no Whisper. Tente novamente em alguns minutos."
+            )
         except openai.AuthenticationError as e:
             logger.error("whisper_auth_error", error=str(e))
-            raise AIServiceError("Chave de API do OpenAI inválida para transcrição de áudio.")
+            raise AIServiceError(
+                "Chave de API do OpenAI inválida para transcrição de áudio."
+            )
         except openai.APIError as e:
-            logger.error("whisper_api_error", status_code=getattr(e, "status_code", None), error=str(e))
+            logger.error(
+                "whisper_api_error",
+                status_code=getattr(e, "status_code", None),
+                error=str(e),
+            )
             raise AIServiceError(f"Erro na transcrição de áudio: {e}")

@@ -4,12 +4,13 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import UserNotFoundError
 from app.core.logging import get_logger
-from app.infrastructure.database.models.transaction import Transaction, TransactionType
+from app.infrastructure.database.models.transaction import TransactionType
 from app.infrastructure.database.models.user import User
-from app.infrastructure.database.models.whatsapp_message import MessageType, WhatsappMessage
-from app.services.auth_service import AuthService
+from app.infrastructure.database.models.whatsapp_message import (
+    MessageType,
+    WhatsappMessage,
+)
 from app.services.transaction_service import TransactionService
 from app.services.whatsapp_parser import ParsedMessage, WhatsappParser
 
@@ -70,7 +71,9 @@ class WhatsappService:
             )
 
         # User just sent a message → always within 24h window; pass db for helper use
-        await WhatsappService._try_send_reply(phone_number, response_text, within_window=True)
+        await WhatsappService._try_send_reply(
+            phone_number, response_text, within_window=True
+        )
 
         msg = WhatsappMessage(
             user_id=user.id if user else None,
@@ -96,6 +99,7 @@ class WhatsappService:
     ) -> ParsedMessage:
         try:
             from app.services.ai_service import AIService
+
             suggestion = await AIService().analyze_transaction(text, user_id=user_id)
             if suggestion.confidence > 0.8:
                 msg_type = (
@@ -105,7 +109,9 @@ class WhatsappService:
                 )
                 return ParsedMessage(
                     message_type=msg_type,
-                    amount=suggestion.amount if suggestion.amount is not None else fallback.amount,
+                    amount=suggestion.amount
+                    if suggestion.amount is not None
+                    else fallback.amount,
                     category=suggestion.category,
                     confidence=suggestion.confidence,
                 )
@@ -134,12 +140,21 @@ class WhatsappService:
         within_window: bool = True,
     ) -> None:
         from app.core.config import settings
+
         try:
             if settings.WHATSAPP_PROVIDER == "evolution":
-                from app.infrastructure.whatsapp.evolution_provider import EvolutionProvider
-                await EvolutionProvider().send_message(phone=phone_number, message=response_text)
+                from app.infrastructure.whatsapp.evolution_provider import (
+                    EvolutionProvider,
+                )
+
+                await EvolutionProvider().send_message(
+                    phone=phone_number, message=response_text
+                )
             elif settings.WHATSAPP_ACCESS_TOKEN and settings.WHATSAPP_PHONE_NUMBER_ID:
-                from app.infrastructure.whatsapp.cloud_api_provider import CloudAPIProvider
+                from app.infrastructure.whatsapp.cloud_api_provider import (
+                    CloudAPIProvider,
+                )
+
                 await CloudAPIProvider().send_message(
                     phone=phone_number,
                     message=response_text,
@@ -156,7 +171,10 @@ class WhatsappService:
     ) -> str:
         try:
             from app.services.ai_service import AIService
-            return await AIService().enhance_whatsapp_response(response_text, user_id, db)
+
+            return await AIService().enhance_whatsapp_response(
+                response_text, user_id, db
+            )
         except Exception as e:
             logger.debug("ai_enhance_fallback", reason=str(e))
             return response_text
