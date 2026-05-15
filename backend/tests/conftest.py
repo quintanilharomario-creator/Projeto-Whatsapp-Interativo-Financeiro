@@ -77,6 +77,22 @@ async def test_user(db: AsyncSession):
     )
 
 
+@pytest.fixture(autouse=True)
+def mock_redis_globally():
+    """Prevents real Redis connections in all tests (Redis not available in test env)."""
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=None)
+    mock_client.setex = AsyncMock()
+    mock_client.delete = AsyncMock()
+    mock_client.keys = AsyncMock(return_value=[])
+    with patch("app.infrastructure.cache.redis_client.redis.from_url", return_value=mock_client):
+        import app.infrastructure.cache.redis_client as m
+        original = m._redis
+        m._redis = None
+        yield mock_client
+        m._redis = original
+
+
 @pytest.fixture
 def mock_claude_provider():
     """Patches ClaudeProvider._call to prevent real API calls in tests."""
