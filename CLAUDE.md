@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Personal financial management SaaS integrated with WhatsApp and AI. Users send natural-language messages ("Gastei R$50 no mercado") and the system records, categorizes, and analyzes transactions automatically.
+**Hermes** by Quingo — Personal financial management SaaS integrated with WhatsApp and AI. Users send natural-language messages ("Gastei R$50 no mercado") and the system records, categorizes, and analyzes transactions automatically.
+
+- **Product:** Hermes (`hermesapp.com.br` — future)
+- **Company:** Quingo (`quingo.com.br`)
+- **Tagline:** "Hermes — Suas finanças no WhatsApp"
 
 **Status:** Early development — only `app/core/` and `app/main.py` have real content. All other files under `app/` are empty stubs defining the intended structure.
 

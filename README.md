@@ -1,6 +1,8 @@
-# SaaS Financeiro com WhatsApp
+# Hermes — Suas finanças no WhatsApp
 
-Sistema de gestão financeira pessoal integrado ao WhatsApp com IA.
+**by [Quingo](https://quingo.com.br)** — Startup de tecnologia
+
+Hermes é um SaaS de gestão financeira pessoal integrado ao WhatsApp com IA.
 O usuário envia mensagens como "Gastei R$50 no mercado" e o sistema registra, categoriza e analisa automaticamente.
 
 ---
@@ -68,7 +70,7 @@ Docs (Swagger): `http://localhost:8000/docs`
 ```bash
 cd backend
 
-# Todos os testes (178 testes, ~93% cobertura)
+# Todos os testes (152 testes, ~92% cobertura)
 pytest
 
 # Com relatório de cobertura
@@ -126,7 +128,7 @@ Ver `.env.example` para a lista completa.
 
 ## WhatsApp
 
-O sistema usa a **Meta Cloud API** (WhatsApp Business API oficial).
+Hermes usa a **Meta Cloud API** (WhatsApp Business API oficial).
 
 Configure as variáveis `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` e `WHATSAPP_BUSINESS_ACCOUNT_ID` no `.env`.
 O webhook deve ser registrado no Meta Business Manager apontando para `/api/v1/whatsapp/webhook`.

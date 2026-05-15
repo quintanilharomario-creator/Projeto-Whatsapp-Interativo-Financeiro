@@ -6,8 +6,10 @@ class Settings(BaseSettings):
     # ==========================================
     # APP
     # ==========================================
-    APP_NAME: str = "SaaS Financeiro"
-    APP_VERSION: str = "0.1.0"
+    APP_NAME: str = "Hermes"
+    APP_VERSION: str = "1.0.0"
+    PRODUCT_NAME: str = "Hermes"
+    COMPANY_NAME: str = "Quingo"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
@@ -147,7 +149,7 @@ class Settings(BaseSettings):
     # EMAIL
     # ==========================================
     SMTP_PORT: int = 587
-    SMTP_FROM_EMAIL: str = "noreply@saas-financeiro.com"
+    SMTP_FROM_EMAIL: str = "adminquingo@quingo.com.br"
 
     # ==========================================
     # CORS

@@ -60,7 +60,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="SaaS Financeiro com WhatsApp + IA",
+    description="Hermes by Quingo — Suas finanças no WhatsApp",
+    contact={"name": "Quingo", "email": "adminquingo@quingo.com.br"},
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
