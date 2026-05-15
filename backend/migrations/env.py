@@ -19,8 +19,8 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# DATABASE_URL usa psycopg (sync) — adequado para Alembic; asyncpg é só para o runtime
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Alembic precisa do driver síncrono (psycopg); runtime usa asyncpg via session.py
+config.set_main_option("sqlalchemy.url", settings.database_url_sync)
 
 
 def run_migrations_offline() -> None:
