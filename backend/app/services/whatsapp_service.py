@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,7 +69,8 @@ class WhatsappService:
                 response_text, str(user.id), db
             )
 
-        await WhatsappService._try_send_reply(phone_number, response_text)
+        # User just sent a message → always within 24h window; pass db for helper use
+        await WhatsappService._try_send_reply(phone_number, response_text, within_window=True)
 
         msg = WhatsappMessage(
             user_id=user.id if user else None,
@@ -113,13 +114,35 @@ class WhatsappService:
         return fallback
 
     @staticmethod
-    async def _try_send_reply(phone_number: str, response_text: str) -> None:
+    async def _is_within_24h_window(phone_number: str, db: AsyncSession) -> bool:
+        """Returns True if this phone sent a message in the last 24 hours."""
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        result = await db.execute(
+            select(WhatsappMessage)
+            .where(
+                WhatsappMessage.phone_number == phone_number,
+                WhatsappMessage.created_at >= cutoff,
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
+    @staticmethod
+    async def _try_send_reply(
+        phone_number: str,
+        response_text: str,
+        within_window: bool = True,
+    ) -> None:
         from app.core.config import settings
         if not (settings.WHATSAPP_ACCESS_TOKEN and settings.WHATSAPP_PHONE_NUMBER_ID):
             return
         try:
             from app.infrastructure.whatsapp.cloud_api_provider import CloudAPIProvider
-            await CloudAPIProvider().send_message(phone=phone_number, message=response_text)
+            await CloudAPIProvider().send_message(
+                phone=phone_number,
+                message=response_text,
+                within_window=within_window,
+            )
         except Exception as e:
             logger.warning("whatsapp_reply_failed", phone=phone_number, error=str(e))
 

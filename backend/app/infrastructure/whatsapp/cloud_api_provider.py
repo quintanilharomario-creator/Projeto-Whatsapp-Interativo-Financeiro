@@ -17,7 +17,8 @@ class CloudAPIProvider:
             "Content-Type": "application/json",
         }
 
-    async def send_message(self, phone: str, message: str) -> bool:
+    async def send_text(self, phone: str, message: str) -> bool:
+        """Free-text message — only works inside a 24-hour user-initiated window."""
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -25,15 +26,48 @@ class CloudAPIProvider:
             "type": "text",
             "text": {"preview_url": False, "body": message},
         }
+        return await self._post(payload, phone, msg_type="text")
+
+    async def send_template(
+        self,
+        phone: str,
+        template_name: str = "hello_world",
+        language_code: str = "en_US",
+    ) -> bool:
+        """Template message — works anytime, required outside the 24-hour window."""
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": phone,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {"code": language_code},
+            },
+        }
+        return await self._post(payload, phone, msg_type=f"template:{template_name}")
+
+    async def send_message(
+        self,
+        phone: str,
+        message: str,
+        within_window: bool = True,
+    ) -> bool:
+        """Smart dispatch: free text inside 24-hour window, template outside."""
+        if within_window:
+            return await self.send_text(phone, message)
+        return await self.send_template(phone)
+
+    async def _post(self, payload: dict, phone: str, msg_type: str) -> bool:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(self._url, headers=self._headers, json=payload)
             if response.status_code == 200:
-                logger.info("whatsapp_message_sent", phone=phone)
+                logger.info("whatsapp_message_sent", phone=phone, type=msg_type)
                 return True
             logger.warning(
                 "whatsapp_send_failed",
                 phone=phone,
+                type=msg_type,
                 status=response.status_code,
                 body=response.text[:200],
             )
