@@ -1,159 +1,76 @@
-# WhatsApp Provider Migration Guide
+# WhatsApp — Meta Cloud API
 
-## Current State
+## Provider atual
 
-**Active provider:** Evolution API (`WHATSAPP_PROVIDER=evolution`)
-**Reason:** Meta Cloud API blocks sends to Brazilian numbers (+55) with error 130497.
+**Provider:** Meta Cloud API (`WHATSAPP_PROVIDER=cloud_api`)
 
----
-
-## Why Evolution API (Temporary)
-
-### Meta Error 130497
-
-```
-{
-  "error": {
-    "message": "Message failed to send because there are restrictions on how many messages can be sent from this phone number.",
-    "type": "OAuthException",
-    "code": 130497,
-    "error_subcode": 2494097,
-    "fbtrace_id": "..."
-  }
-}
-```
-
-**Root cause:** Meta test phone numbers (+1 555 xxx-xxxx) have geographic restrictions.
-They can only send to pre-approved recipient numbers via **Templates**. Free-text
-messages to Brazilian numbers (+55) are blocked on unverified test accounts.
-
-### Evolution API as Bridge
-
-Evolution API connects a real WhatsApp number via Baileys (WhatsApp Web protocol),
-bypassing Meta's API entirely. It works immediately without verification, at the cost of:
-
-- No official SLA from Meta
-- Risk of WhatsApp account ban if used at high volume
-- Requires a real WhatsApp SIM card connected 24/7
-
-**Suitable for:** development, proof-of-concept, low-volume MVP.
+A integração via Evolution API foi removida. O projeto usa exclusivamente a
+[API oficial do WhatsApp Business (Meta Cloud API)](https://developers.facebook.com/docs/whatsapp/cloud-api).
 
 ---
 
-## Architecture
+## Configuração
 
-```
-User (WhatsApp)
-      │
-      ▼
-Evolution API (Baileys) ─── POST /api/v1/evolution/webhook ──► FastAPI
-      │                                                              │
-      │  sends reply                                                 ▼
-      └────────────────────────────────────────────── WhatsappService
-                                                           │
-                                          WHATSAPP_PROVIDER=evolution
-                                                   EvolutionProvider
-```
-
----
-
-## How to Set Up Evolution API
-
-```bash
-# 1. Start the container (already in docker-compose.yml)
-docker compose up -d evolution
-
-# 2. Create the Baileys instance (once)
-curl -X POST http://localhost:8000/api/v1/evolution/instance/create
-
-# 3. Get QR code
-curl http://localhost:8000/api/v1/evolution/instance/qrcode
-
-# 4. Scan the base64 QR code with WhatsApp on your phone
-
-# 5. Verify connection
-curl http://localhost:8000/api/v1/evolution/instance/status
-# Expected: {"state": "open", "connected": true}
-
-# 6. Configure Evolution to send webhooks to your API
-# In Evolution dashboard (http://localhost:8080/manager) or via API:
-# Webhook URL: https://your-ngrok-url/api/v1/evolution/webhook
-# Events: messages.upsert
-```
-
----
-
-## Migrating Back to Meta Cloud API
-
-### Prerequisites
-
-1. Complete **Meta Business Verification** (Etapa 3 in Meta Business Manager).
-2. Add a **real phone number** as WhatsApp sender (not the +1 555 test number).
-3. Create at least one approved message template for proactive sends.
-
-### Steps
-
-```bash
-# 1. Update .env
+```env
 WHATSAPP_PROVIDER=cloud_api
-WHATSAPP_ACCESS_TOKEN=<real token from Meta Business>
-WHATSAPP_PHONE_NUMBER_ID=<real phone number ID>
-WHATSAPP_BUSINESS_ACCOUNT_ID=<account ID>
-
-# 2. Register your webhook in Meta Business Manager:
-# URL: https://your-domain/api/v1/whatsapp/webhook
-# Verify token: value of WHATSAPP_VERIFY_TOKEN in .env
-# Subscribe to: messages
-
-# 3. Restart the API
-uvicorn app.main:app --reload --port 8000
+WHATSAPP_ACCESS_TOKEN=<token do Meta Business Manager>
+WHATSAPP_PHONE_NUMBER_ID=<ID do número registrado>
+WHATSAPP_BUSINESS_ACCOUNT_ID=<ID da conta de negócios>
+WHATSAPP_VERIFY_TOKEN=<token de verificação do webhook>
+WHATSAPP_API_VERSION=v21.0
 ```
 
-### Notes on 24-hour Window
+### Configurar o webhook no Meta Business Manager
 
-After verification, text replies work only within 24 hours of the user's last message.
-For proactive sends (reports, alerts), use approved templates:
+1. Acesse **Meta Business Manager → WhatsApp → Configuração → Webhooks**.
+2. URL do webhook: `https://your-domain/api/v1/whatsapp/webhook`
+3. Token de verificação: valor de `WHATSAPP_VERIFY_TOKEN` no `.env`
+4. Assinar o evento: `messages`
+
+---
+
+## Janela de 24 horas
+
+Respostas de texto livre funcionam apenas dentro de 24 h após a última mensagem
+do usuário. Para envios proativos (relatórios, alertas), use templates aprovados:
 
 ```python
 from app.infrastructure.whatsapp.cloud_api_provider import CloudAPIProvider
 
 provider = CloudAPIProvider()
 await provider.send_template(
-    phone="5533999469497",
-    template_name="monthly_report",   # must be pre-approved by Meta
+    phone="5533999469794",
+    template_name="monthly_report",   # deve ser pré-aprovado pela Meta
     language_code="pt_BR",
 )
 ```
 
 ---
 
-## Alternative Providers
+## Arquitetura
 
-| Provider | Free trial | BR support | Notes |
-|---|---|---|---|
-| Twilio WhatsApp | Yes (sandbox) | Yes | Easy setup, usage-based pricing |
-| 360dialog | No | Yes | Official BSP, best for scale |
-| MessageBird | No | Yes | European pricing |
-| Meta Cloud API | Yes (test) | After verification | Free up to 1000 conv/month |
-| Evolution API | Self-hosted | Yes | Unofficial, dev/MVP only |
+```
+User (WhatsApp)
+      │
+      ▼
+Meta Cloud API ── POST /api/v1/whatsapp/webhook ──► FastAPI
+                                                        │
+                                                        ▼
+                                               WhatsappService
+                                                        │
+                                               CloudAPIProvider
+                                          (WHATSAPP_PROVIDER=cloud_api)
+```
 
 ---
 
-## Config Reference
+## Referência de variáveis
 
-```env
-# Active provider
-WHATSAPP_PROVIDER=evolution         # or cloud_api
-
-# Evolution API
-EVOLUTION_API_URL=http://localhost:8080
-EVOLUTION_API_KEY=minha-chave-evolution-123
-EVOLUTION_INSTANCE=saas-financeiro
-
-# Meta Cloud API (for future migration)
-WHATSAPP_ACCESS_TOKEN=
-WHATSAPP_PHONE_NUMBER_ID=
-WHATSAPP_BUSINESS_ACCOUNT_ID=
-WHATSAPP_VERIFY_TOKEN=meu_token_secreto_de_verificacao
-WHATSAPP_API_VERSION=v21.0
-```
+| Variável | Descrição |
+|---|---|
+| `WHATSAPP_PROVIDER` | Sempre `cloud_api` |
+| `WHATSAPP_ACCESS_TOKEN` | Token do Meta Business Manager |
+| `WHATSAPP_PHONE_NUMBER_ID` | ID do número remetente registrado na Meta |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | ID da conta de negócios Meta |
+| `WHATSAPP_VERIFY_TOKEN` | Token para verificação do webhook |
+| `WHATSAPP_API_VERSION` | Versão da API Meta (padrão: `v21.0`) |

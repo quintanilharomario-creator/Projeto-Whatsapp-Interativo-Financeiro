@@ -142,15 +142,7 @@ class WhatsappService:
         from app.core.config import settings
 
         try:
-            if settings.WHATSAPP_PROVIDER == "evolution":
-                from app.infrastructure.whatsapp.evolution_provider import (
-                    EvolutionProvider,
-                )
-
-                await EvolutionProvider().send_message(
-                    phone=phone_number, message=response_text
-                )
-            elif settings.WHATSAPP_ACCESS_TOKEN and settings.WHATSAPP_PHONE_NUMBER_ID:
+            if settings.WHATSAPP_ACCESS_TOKEN and settings.WHATSAPP_PHONE_NUMBER_ID:
                 from app.infrastructure.whatsapp.cloud_api_provider import (
                     CloudAPIProvider,
                 )

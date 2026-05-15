@@ -50,42 +50,6 @@ services:
       timeout: 10s
       retries: 3
 
-  evolution:
-    image: evoapicloud/evolution-api:latest
-    container_name: saas_evolution
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    networks:
-      - infra
-    environment:
-      - SERVER_URL=http://localhost:8080
-      - SERVER_TYPE=http
-      - SERVER_PORT=8080
-      - AUTHENTICATION_TYPE=apikey
-      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-minha-chave-evolution-123}
-      - DATABASE_ENABLED=true
-      - DATABASE_PROVIDER=postgresql
-      - DATABASE_CONNECTION_URI=postgresql://${POSTGRES_USER:-saas_user}:${POSTGRES_PASSWORD:-dev_password_123}@saas_postgres:5432/evolution
-      - DATABASE_SAVE_DATA_INSTANCE=true
-      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
-      - DATABASE_SAVE_DATA_CONTACTS=true
-      - DATABASE_SAVE_DATA_CHATS=true
-      - DATABASE_SAVE_DATA_LABELS=true
-      - DATABASE_SAVE_DATA_HISTORIC=true
-      - CACHE_REDIS_ENABLED=true
-      - CACHE_REDIS_URI=redis://saas_redis:6379/3
-      - CACHE_REDIS_PREFIX_KEY=evolution
-      - CACHE_REDIS_SAVE_INSTANCES=false
-      - LOG_LEVEL=ERROR
-      - LOG_COLOR=false
-      - LOG_BAILEYS=warn
-      - DEL_INSTANCE=false
-      - QRCODE_LIMIT=30
-      - CONFIG_SESSION_PHONE_VERSION=2.3000.1030444778
-      - CONFIG_SESSION_PHONE_CLIENT=Evolution API
-      - CONFIG_SESSION_PHONE_NAME=Chrome
-
 volumes:
   postgres_data:
     driver: local
@@ -94,7 +58,3 @@ volumes:
   minio_data:
     driver: local
 
-networks:
-  infra:
-    external: true
-    name: docker_default

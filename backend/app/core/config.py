@@ -97,12 +97,9 @@ class Settings(BaseSettings):
     TTS_VOICE: str = "nova"
 
     # ==========================================
-    # WHATSAPP
+    # WHATSAPP (Meta Cloud API)
     # ==========================================
-    # Temporary: "evolution" while Meta account is unverified (error 130497).
-    # Switch back to "cloud_api" after completing Meta business verification.
-    # See WHATSAPP_MIGRATION.md for the full migration plan.
-    WHATSAPP_PROVIDER: str = "evolution"
+    WHATSAPP_PROVIDER: str = "cloud_api"
 
     WHATSAPP_ACCESS_TOKEN: str = ""
     WHATSAPP_PHONE_NUMBER_ID: str = ""
@@ -112,11 +109,6 @@ class Settings(BaseSettings):
     WHATSAPP_VERIFY_TOKEN: str = "meu_token_secreto_de_verificacao"
 
     WHATSAPP_API_VERSION: str = "v21.0"
-
-    # ── Evolution API (active provider) ───────────────────────────────────
-    EVOLUTION_API_URL: str = "http://localhost:8080"
-    EVOLUTION_API_KEY: str = "minha-chave-evolution-123"
-    EVOLUTION_INSTANCE: str = "saas-financeiro"
 
     # ==========================================
     # STORAGE

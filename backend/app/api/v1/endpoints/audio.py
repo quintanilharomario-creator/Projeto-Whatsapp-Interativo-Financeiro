@@ -33,10 +33,7 @@ async def transcribe_and_process(
     phone_number: str = Form(..., min_length=5, max_length=20),
     db: AsyncSession = Depends(get_db),
 ):
-    """Transcribe audio and process it as a WhatsApp message.
-
-    Useful for forwarding WhatsApp voice messages received via the Evolution API.
-    """
+    """Transcribe audio and process it as a WhatsApp message."""
     audio_bytes = await file.read()
     provider = WhisperProvider()
     text = await provider.transcribe(audio_bytes, filename=file.filename or "audio.ogg")
