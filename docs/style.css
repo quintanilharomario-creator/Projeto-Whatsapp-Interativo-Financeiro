@@ -1,22 +1,79 @@
+:root {
+    --primary-blue: #0d6efd;
+    --primary-green: #25D366;
+    --text-dark: #222;
+    --text-light: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #111;
+        color: #ddd;
+    }
+    .container {
+        background: #1a1a1a;
+        color: #eee;
+    }
+    footer {
+        background: #000;
+    }
+}
+
 body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
     background: #f5f5f5;
-    color: #333;
+    color: var(--text-dark);
 }
+
 header {
-    background: #0d6efd;
+    background: var(--primary-blue);
     color: white;
-    padding: 20px;
+    padding: 25px;
     text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
+
+.logo {
+    font-size: 32px;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.logo-icon {
+    width: 22px;
+    height: 22px;
+    background: var(--primary-green);
+    border-radius: 50%;
+    position: relative;
+}
+
+.logo-icon::before,
+.logo-icon::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 2px;
+    background: var(--primary-green);
+    top: 10px;
+    left: -16px;
+}
+
+.logo-icon::after {
+    left: 24px;
+}
+
 nav a {
     color: white;
     margin: 0 15px;
     text-decoration: none;
     font-weight: bold;
 }
+
 .container {
     max-width: 900px;
     margin: 40px auto;
@@ -24,11 +81,43 @@ nav a {
     padding: 30px;
     border-radius: 10px;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    animation: fadeIn 0.6s ease-in-out;
 }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 footer {
     background: #222;
     color: #ccc;
     text-align: center;
-    padding: 15px;
+    padding: 20px;
     margin-top: 40px;
+}
+
+.whatsapp-float {
+    position: fixed;
+    width: 60px;
+    height: 60px;
+    bottom: 25px;
+    right: 25px;
+    background-color: var(--primary-green);
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    font-size: 32px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
+    animation: pop 0.4s ease-out;
+}
+
+@keyframes pop {
+    from { transform: scale(0.5); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }
