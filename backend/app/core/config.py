@@ -52,6 +52,18 @@ class Settings(BaseSettings):
         "postgresql+psycopg://saas_user:dev_password_123@localhost:5432/saas_financeiro"
     )
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def normalize_database_url(cls, v: str) -> str:
+        """Normalize Railway/Heroku postgres:// URLs to use the psycopg3 driver."""
+        if v.startswith("postgres://"):
+            return "postgresql+psycopg://" + v[len("postgres://"):]
+        if v.startswith("postgresql://"):
+            return "postgresql+psycopg://" + v[len("postgresql://"):]
+        if v.startswith("postgresql+asyncpg://"):
+            return "postgresql+psycopg://" + v[len("postgresql+asyncpg://"):]
+        return v
+
     @computed_field
     @property
     def database_url_sync(self) -> str:
