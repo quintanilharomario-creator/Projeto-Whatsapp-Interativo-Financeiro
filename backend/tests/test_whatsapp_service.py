@@ -64,6 +64,34 @@ async def test_receive_query_message_no_transaction(db: AsyncSession, user_with_
     assert msg.message_type == MessageType.QUERY
     assert msg.transaction_id is None
     assert msg.response_text is not None
+    assert "R$" in (msg.response_text or "")
+
+
+async def test_query_saldo_shows_balance(db: AsyncSession, user_with_phone):
+    await WhatsappService.receive_message(
+        "+5511999999999", "Recebi R$1000 de salário", db
+    )
+    msg = await WhatsappService.receive_message(
+        phone_number="+5511999999999",
+        message_text="qual meu saldo",
+        db=db,
+    )
+    assert "saldo" in (msg.response_text or "").lower()
+    assert "R$ 1.000,00" in (msg.response_text or "")
+
+
+async def test_query_extrato_shows_transactions(db: AsyncSession, user_with_phone):
+    await WhatsappService.receive_message(
+        "+5511999999999", "Gastei R$50 no mercado", db
+    )
+    msg = await WhatsappService.receive_message(
+        phone_number="+5511999999999",
+        message_text="extrato",
+        db=db,
+    )
+    assert msg.message_type == MessageType.QUERY
+    assert "Extrato" in (msg.response_text or "")
+    assert "R$" in (msg.response_text or "")
 
 
 async def test_auto_create_user_on_first_message(db: AsyncSession):

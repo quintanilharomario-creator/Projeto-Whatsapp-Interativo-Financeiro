@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,11 @@ from app.services.transaction_service import TransactionService
 from app.services.whatsapp_parser import ParsedMessage, WhatsappParser
 
 logger = get_logger(__name__)
+
+_MONTH_NAMES_PT = [
+    "", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+]
 
 
 class WhatsappService:
@@ -91,6 +97,10 @@ class WhatsappService:
             response_text = WhatsappService._build_welcome_message(
                 phone_number, transaction_id
             )
+        elif parsed.message_type == MessageType.QUERY:
+            response_text = await WhatsappService._handle_query(
+                message_text, user.id, db
+            )
         else:
             response_text = WhatsappService._build_response(parsed, transaction_id)
             # AI enhancement: improve WhatsApp response when transaction was created
@@ -138,6 +148,68 @@ class WhatsappService:
             f"🎤 Mandar áudio com qualquer comando"
             f"{txn_line}"
         )
+
+    @staticmethod
+    def _fmt_brl(value: Decimal) -> str:
+        formatted = f"{value:,.2f}"
+        return "R$ " + formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+
+    @staticmethod
+    async def _handle_query(
+        message_text: str, user_id: uuid.UUID, db: AsyncSession
+    ) -> str:
+        from app.services.report_service import ReportService
+
+        text = message_text.lower()
+        is_extract = any(kw in text for kw in ("extrato", "movimenta", "transa"))
+        now = datetime.now(timezone.utc)
+
+        try:
+            monthly = await ReportService.get_monthly_report(
+                user_id, now.year, now.month, db
+            )
+            if is_extract:
+                summary = await ReportService.get_summary(user_id, db)
+                return WhatsappService._format_extract_response(monthly, summary, now)
+            else:
+                balance = await ReportService.get_balance(user_id, db)
+                return WhatsappService._format_balance_response(balance, monthly, now)
+        except Exception as e:
+            logger.warning("query_report_failed", error=str(e))
+            return "Não consegui buscar seus dados agora. Tente novamente em instantes."
+
+    @staticmethod
+    def _format_balance_response(balance: dict, monthly: dict, now: datetime) -> str:
+        month_name = _MONTH_NAMES_PT[now.month]
+        fmt = WhatsappService._fmt_brl
+        return (
+            f"💰 Seu saldo atual: {fmt(balance['balance'])}\n\n"
+            f"📊 Este mês ({month_name}/{now.year}):\n"
+            f"✅ Receitas: {fmt(monthly['total_income'])}\n"
+            f"❌ Despesas: {fmt(monthly['total_expense'])}"
+        )
+
+    @staticmethod
+    def _format_extract_response(monthly: dict, summary: dict, now: datetime) -> str:
+        month_name = _MONTH_NAMES_PT[now.month]
+        fmt = WhatsappService._fmt_brl
+        lines = [
+            f"📋 Extrato de {month_name}/{now.year}:\n",
+            f"💰 Receitas: {fmt(monthly['total_income'])}",
+            f"❌ Despesas: {fmt(monthly['total_expense'])}",
+            f"📊 Saldo: {fmt(monthly['balance'])}",
+        ]
+        recent = summary.get("recent_transactions", [])
+        if recent:
+            lines.append("\nÚltimas transações:")
+            for txn in recent[:5]:
+                date_str = txn["date"][:10]
+                day_month = f"{date_str[8:10]}/{date_str[5:7]}"
+                icon = "✅" if txn["type"] == "INCOME" else "💸"
+                amount = fmt(Decimal(str(txn["amount"])))
+                cat = txn.get("category") or "Outros"
+                lines.append(f"{icon} {day_month} - {amount} - {cat}")
+        return "\n".join(lines)
 
     @staticmethod
     async def _try_ai_classify(
@@ -280,9 +352,6 @@ class WhatsappService:
 
     @staticmethod
     def _build_response(parsed: ParsedMessage, transaction_id: uuid.UUID | None) -> str:
-        if parsed.message_type == MessageType.QUERY:
-            return "Para ver seu saldo e extrato, acesse o app ou envie 'extrato'."
-
         if parsed.message_type == MessageType.OTHER:
             return (
                 "Não entendi. Envie algo como: 'Gastei R$50 no mercado' "

@@ -79,3 +79,31 @@ def test_parse_income_pix():
     result = WhatsappParser.parse("Pix recebido de R$500")
     assert result.message_type == MessageType.INCOME
     assert result.amount == Decimal("500")
+
+
+def test_parse_income_servico_category():
+    result = WhatsappParser.parse("recebi 1000 de serviço")
+    assert result.message_type == MessageType.INCOME
+    assert result.category == "Renda"
+
+
+def test_parse_income_freelance_category():
+    result = WhatsappParser.parse("recebi 500 de freelance")
+    assert result.message_type == MessageType.INCOME
+    assert result.category == "Renda"
+
+
+def test_parse_income_consultoria_category():
+    result = WhatsappParser.parse("ganhei 2000 de consultoria")
+    assert result.message_type == MessageType.INCOME
+    assert result.category == "Renda"
+
+
+def test_parse_query_balanco():
+    result = WhatsappParser.parse("me mostra o balanço")
+    assert result.message_type == MessageType.QUERY
+
+
+def test_parse_query_movimentacoes():
+    result = WhatsappParser.parse("quero ver minhas movimentações")
+    assert result.message_type == MessageType.QUERY

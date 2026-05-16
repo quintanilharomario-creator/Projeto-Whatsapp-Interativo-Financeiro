@@ -20,7 +20,7 @@ _INCOME_KEYWORDS = re.compile(
 )
 
 _QUERY_KEYWORDS = re.compile(
-    r"\b(saldo|extrato|resumo|quanto|relat[oó]rio|gastos|sobrou|sobra|tenho)\b",
+    r"\b(saldo|extrato|resumo|quanto|relat[oó]rio|gastos|sobrou|sobra|tenho|balan[cç]o|movimenta\w*|transa\w*)\b",
     re.IGNORECASE,
 )
 
@@ -46,7 +46,8 @@ _CATEGORY_MAP = {
         re.IGNORECASE,
     ): "Lazer",
     re.compile(
-        r"\b(salário|salario|freela|freelance|renda|serviço prestado)\b", re.IGNORECASE
+        r"\b(sal[aá]rio|freela|freelance|renda|servi[cç]o|pagamento|trabalho|consultoria|venda|comiss[aã]o|b[oô]nus)\b",
+        re.IGNORECASE,
     ): "Renda",
     re.compile(
         r"\b(escola|faculdade|curso|livro|material escolar)\b", re.IGNORECASE
