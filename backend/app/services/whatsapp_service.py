@@ -19,9 +19,35 @@ logger = get_logger(__name__)
 
 class WhatsappService:
     @staticmethod
-    async def get_or_create_user(phone_number: str, db: AsyncSession) -> User | None:
+    async def get_or_create_user(
+        phone_number: str, db: AsyncSession
+    ) -> tuple[User, bool]:
+        """Returns (user, is_new). Creates user automatically if not found."""
         result = await db.execute(select(User).where(User.phone == phone_number))
-        return result.scalar_one_or_none()
+        user = result.scalar_one_or_none()
+
+        if user:
+            return user, False
+
+        user = User(
+            phone=phone_number,
+            full_name=f"WhatsApp {phone_number[-4:]}",
+            email=f"{phone_number}@hermes.local",
+            hashed_password="whatsapp_auto_created",
+            is_active=True,
+            is_verified=True,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+        logger.info(
+            "whatsapp_user_auto_created",
+            phone=phone_number,
+            user_id=str(user.id),
+        )
+
+        return user, True
 
     @staticmethod
     async def receive_message(
@@ -29,20 +55,19 @@ class WhatsappService:
         message_text: str,
         db: AsyncSession,
     ) -> WhatsappMessage:
-        user = await WhatsappService.get_or_create_user(phone_number, db)
+        user, is_new = await WhatsappService.get_or_create_user(phone_number, db)
         parsed = WhatsappParser.parse(message_text)
 
         # AI enhancement: try to improve classification when regex confidence is low
         if parsed.message_type in (MessageType.INCOME, MessageType.EXPENSE):
             parsed = await WhatsappService._try_ai_classify(
-                message_text, parsed, user_id=str(user.id) if user else None
+                message_text, parsed, user_id=str(user.id)
             )
 
         transaction_id: uuid.UUID | None = None
 
         if (
-            user
-            and parsed.message_type in (MessageType.INCOME, MessageType.EXPENSE)
+            parsed.message_type in (MessageType.INCOME, MessageType.EXPENSE)
             and parsed.amount
             and parsed.confidence >= 0.5
         ):
@@ -62,21 +87,25 @@ class WhatsappService:
             )
             transaction_id = txn.id
 
-        response_text = WhatsappService._build_response(parsed, transaction_id)
-
-        # AI enhancement: improve WhatsApp response if user exists
-        if user and transaction_id:
-            response_text = await WhatsappService._try_enhance_response(
-                response_text, str(user.id), db
+        if is_new:
+            response_text = WhatsappService._build_welcome_message(
+                phone_number, transaction_id
             )
+        else:
+            response_text = WhatsappService._build_response(parsed, transaction_id)
+            # AI enhancement: improve WhatsApp response when transaction was created
+            if transaction_id:
+                response_text = await WhatsappService._try_enhance_response(
+                    response_text, str(user.id), db
+                )
 
-        # User just sent a message → always within 24h window; pass db for helper use
+        # User just sent a message → always within 24h window
         await WhatsappService._try_send_reply(
             phone_number, response_text, within_window=True
         )
 
         msg = WhatsappMessage(
-            user_id=user.id if user else None,
+            user_id=user.id,
             phone_number=phone_number,
             message_text=message_text,
             message_type=parsed.message_type,
@@ -90,6 +119,25 @@ class WhatsappService:
         await db.commit()
         await db.refresh(msg)
         return msg
+
+    @staticmethod
+    def _build_welcome_message(
+        phone_number: str,
+        transaction_id: uuid.UUID | None,
+    ) -> str:
+        txn_line = "\n\nSua transação foi registrada! 🎉" if transaction_id else ""
+        return (
+            f"👋 Olá! Bem-vindo ao Hermes!\n\n"
+            f"Sou seu assistente financeiro pessoal.\n\n"
+            f"✅ Sua conta foi criada automaticamente\n"
+            f"📱 Vinculada a: {phone_number}\n\n"
+            f"Você pode:\n"
+            f"💰 Registrar receitas: 'recebi 1000 de salário'\n"
+            f"💸 Registrar despesas: 'gastei 50 no mercado'\n"
+            f"📊 Ver saldo: 'qual meu saldo?'\n"
+            f"🎤 Mandar áudio com qualquer comando"
+            f"{txn_line}"
+        )
 
     @staticmethod
     async def _try_ai_classify(
@@ -244,10 +292,7 @@ class WhatsappService:
         if not transaction_id:
             if not parsed.amount:
                 return "Qual foi o valor?"
-            return (
-                "Você não está cadastrado. Crie sua conta no app para "
-                "registrar transações pelo WhatsApp."
-            )
+            return "Não consegui processar sua mensagem. Tente reformular."
 
         type_label = "receita" if parsed.message_type == MessageType.INCOME else "gasto"
         return (

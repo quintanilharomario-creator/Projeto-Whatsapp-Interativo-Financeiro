@@ -66,15 +66,17 @@ async def test_receive_query_message_no_transaction(db: AsyncSession, user_with_
     assert msg.response_text is not None
 
 
-async def test_receive_message_unknown_phone_no_transaction(db: AsyncSession):
+async def test_auto_create_user_on_first_message(db: AsyncSession):
     msg = await WhatsappService.receive_message(
         phone_number="+5500000000000",
         message_text="Gastei R$30 no restaurante",
         db=db,
     )
-    assert msg.user_id is None
-    assert msg.transaction_id is None
-    assert "cadastrado" in (msg.response_text or "").lower()
+    assert msg.user_id is not None
+    assert msg.transaction_id is not None
+    assert "hermes" in (msg.response_text or "").lower()
+    assert "bem-vindo" in (msg.response_text or "").lower()
+    assert "transação foi registrada" in (msg.response_text or "").lower()
 
 
 async def test_receive_other_message(db: AsyncSession, user_with_phone):

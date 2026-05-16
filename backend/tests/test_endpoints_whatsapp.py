@@ -120,7 +120,7 @@ async def test_receive_webhook_query(client: AsyncClient, user_with_phone):
     assert data[0]["transaction_id"] is None
 
 
-async def test_receive_webhook_unknown_user(client: AsyncClient):
+async def test_receive_webhook_unknown_user_auto_creates(client: AsyncClient):
     response = await client.post(
         "/api/v1/whatsapp/webhook",
         json=_meta("+5500000000001", "Gastei R$30 no bar"),
@@ -131,8 +131,8 @@ async def test_receive_webhook_unknown_user(client: AsyncClient):
         "/api/v1/whatsapp/messages", params={"phone_number": "+5500000000001"}
     )
     data = msgs.json()
-    assert data[0]["user_id"] is None
-    assert data[0]["transaction_id"] is None
+    assert data[0]["user_id"] is not None
+    assert data[0]["transaction_id"] is not None
 
 
 async def test_receive_webhook_ignores_non_text(client: AsyncClient):
