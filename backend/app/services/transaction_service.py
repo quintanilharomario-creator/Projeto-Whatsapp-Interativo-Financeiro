@@ -113,6 +113,21 @@ class TransactionService:
         return transaction
 
     @staticmethod
+    async def get_latest(
+        user_id: uuid.UUID,
+        db: AsyncSession,
+    ) -> "Transaction | None":
+        from app.infrastructure.database.models.transaction import Transaction as _T
+
+        result = await db.execute(
+            select(_T)
+            .where(_T.user_id == user_id)
+            .order_by(_T.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def delete(
         transaction_id: uuid.UUID,
         user_id: uuid.UUID,
