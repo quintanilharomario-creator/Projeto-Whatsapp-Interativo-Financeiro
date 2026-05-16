@@ -316,6 +316,31 @@ def test_typo_uberr():
     assert r.sub == "App"
 
 
+def test_fast_food_mecdonalds():
+    r = categorize("fui no mecdonalds", "EXPENSE")
+    assert r.main == "Alimentação"
+    assert r.sub == "Fast Food"
+
+
+def test_fast_food_macdonalds():
+    r = categorize("macdonalds 30", "EXPENSE")
+    assert r.main == "Alimentação"
+    assert r.sub == "Fast Food"
+
+
+def test_fast_food_burguer():
+    r = categorize("paguei burguer king 25", "EXPENSE")
+    assert r.main == "Alimentação"
+    assert r.sub == "Fast Food"
+
+
+def test_typo_edit_distance_mcdonalds():
+    """'mcdonald' (missing 's') should still match via edit-distance."""
+    r = categorize("fui no mcdonald", "EXPENSE")
+    assert r.main == "Alimentação"
+    assert r.sub == "Fast Food"
+
+
 # ── CategoryResult ─────────────────────────────────────────────────────────────
 
 def test_category_result_display_with_sub():

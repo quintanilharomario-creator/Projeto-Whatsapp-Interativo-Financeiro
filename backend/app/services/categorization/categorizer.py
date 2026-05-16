@@ -4,11 +4,21 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 
 from app.services.categorization.library import EXPENSE_ENTRIES, INCOME_ENTRIES
 from app.services.categorization.normalizer import fuzzy_words, normalize_text
 
 _ALL_REPEATED = re.compile(r"(.)\1+")
+
+_FUZZY_THRESHOLD = 0.82  # SequenceMatcher ratio for edit-distance fallback
+
+
+def _edit_distance_match(word: str, keyword: str) -> bool:
+    """Return True if word is close enough to keyword via SequenceMatcher."""
+    if abs(len(word) - len(keyword)) > 3:
+        return False
+    return SequenceMatcher(None, word, keyword).ratio() >= _FUZZY_THRESHOLD
 
 
 @dataclass
@@ -36,6 +46,8 @@ def _score_entry(
             kw_fuzzy = _ALL_REPEATED.sub(r"\1", kw_norm)
             if kw_norm in exact_words or kw_fuzzy in fuzzy:
                 score += 1.0
+            elif any(_edit_distance_match(w, kw_norm) for w in exact_words):
+                score += 0.8
         else:
             # Multi-word phrase: substring match in normalized text
             phrase = " ".join(kw_parts)

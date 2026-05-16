@@ -7,15 +7,17 @@ from app.infrastructure.database.models.whatsapp_message import MessageType
 # ── Type-detection regex (income / expense / query) ───────────────────────────
 
 _EXPENSE_KEYWORDS = re.compile(
-    r"\b(gast\w+|pagu\w+|compr\w+|debit\w+|saiu|sa[ií]da|despesa|d[ií]vida"
-    r"|boleto|paguei|gastei|comprei|torrei|desembolsei|custou)\b",
+    r"\b(gast\w+|pagu\w+|compr\w+|debit\w+|saiu|sa[ií]da|despesas?|d[ií]vida"
+    r"|boleto|paguei|gastei|comprei|torrei|desembolsei|custou"
+    r"|pagamento|pagamentos)\b",
     re.IGNORECASE,
 )
 
 _INCOME_KEYWORDS = re.compile(
     r"\b(recebi|ganhei|entrou|caiu|faturei|embolsei|lucrei|captei|arrecadei"
     r"|sal[aá]rio|renda|lucro|dep[oó]sito|transferência recebida|pix recebido"
-    r"|pingou|veio|freela|freelance|holerite|dividendos|rendimento)\b",
+    r"|pingou|veio|freela|freelance|holerite|dividendos|rendimento"
+    r"|receitas?|entradas?|cr[eé]ditos?)\b",
     re.IGNORECASE,
 )
 
@@ -105,13 +107,29 @@ class WhatsappParser:
             )
 
         if amount:
-            main, sub = _detect_category(message_text, "EXPENSE")
+            expense_main, expense_sub = _detect_category(message_text, "EXPENSE")
+            income_main, income_sub = _detect_category(message_text, "INCOME")
+
+            from app.services.categorization.categorizer import categorize
+
+            expense_conf = categorize(message_text, "EXPENSE").confidence
+            income_conf = categorize(message_text, "INCOME").confidence
+
+            if income_conf > expense_conf and income_conf > 0:
+                return ParsedMessage(
+                    message_type=MessageType.INCOME,
+                    amount=amount,
+                    category=income_main,
+                    subcategory=income_sub,
+                    confidence=0.7,
+                )
+
             return ParsedMessage(
                 message_type=MessageType.EXPENSE,
                 amount=amount,
-                category=main,
-                subcategory=sub,
-                confidence=0.4,
+                category=expense_main,
+                subcategory=expense_sub,
+                confidence=0.7 if expense_conf > 0 else 0.4,
             )
 
         return ParsedMessage(

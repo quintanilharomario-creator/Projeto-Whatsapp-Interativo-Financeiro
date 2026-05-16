@@ -13,8 +13,9 @@ EXPENSE_ENTRIES: list[tuple[str, str | None, list[str]]] = [
 
     # ── Alimentação ──────────────────────────────────────────────────────────
     ("Alimentação", "Fast Food", [
-        "mcdonalds", "mc donalds", "burger king", "bk", "subway",
-        "pizza hut", "dominos", "kfc", "giraffas", "habibs",
+        "mcdonalds", "mc donalds", "mcdonald", "mecdonalds", "macdonalds",
+        "mac donald", "mc", "burger king", "burguer king", "burguer", "bk",
+        "subway", "pizza hut", "dominos", "kfc", "giraffas", "habibs",
         "china in box", "fastfood", "fast food",
     ]),
     ("Alimentação", "Delivery", [
@@ -33,7 +34,7 @@ EXPENSE_ENTRIES: list[tuple[str, str | None, list[str]]] = [
     ("Alimentação", "Mercado", [
         "mercado", "supermercado", "hortifruti", "sacolao",
         "acougue", "padaria", "mercearia", "atacadao", "atacado",
-        "feira", "quitanda", "sacolao",
+        "feira", "quitanda",
     ]),
     ("Alimentação", None, [
         "cafe", "lanche", "alimentacao", "alimento", "refeicao",

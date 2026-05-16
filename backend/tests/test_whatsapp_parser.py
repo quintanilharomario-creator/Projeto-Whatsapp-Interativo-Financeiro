@@ -107,3 +107,44 @@ def test_parse_query_balanco():
 def test_parse_query_movimentacoes():
     result = WhatsappParser.parse("quero ver minhas movimentações")
     assert result.message_type == MessageType.QUERY
+
+
+def test_infer_income_from_category_only():
+    """'500 holerite' has no income verb — type should be inferred from category."""
+    result = WhatsappParser.parse("500 holerite")
+    assert result.message_type == MessageType.INCOME
+    assert result.amount == Decimal("500")
+    assert result.confidence >= 0.5
+
+
+def test_infer_expense_from_category_only():
+    """'30 uber' has no expense verb — type should be inferred from category."""
+    result = WhatsappParser.parse("30 uber")
+    assert result.message_type == MessageType.EXPENSE
+    assert result.amount == Decimal("30")
+    assert result.confidence >= 0.5
+
+
+def test_formal_income_verb_receita():
+    result = WhatsappParser.parse("receita de 1000 em freelance")
+    assert result.message_type == MessageType.INCOME
+
+
+def test_formal_income_verb_entrada():
+    result = WhatsappParser.parse("entrada de 500 hoje")
+    assert result.message_type == MessageType.INCOME
+
+
+def test_formal_income_verb_credito():
+    result = WhatsappParser.parse("crédito de 2000 na conta")
+    assert result.message_type == MessageType.INCOME
+
+
+def test_formal_expense_verb_despesa():
+    result = WhatsappParser.parse("despesa de 300 com aluguel")
+    assert result.message_type == MessageType.EXPENSE
+
+
+def test_formal_expense_verb_pagamento():
+    result = WhatsappParser.parse("pagamento de 150 feito")
+    assert result.message_type == MessageType.EXPENSE
