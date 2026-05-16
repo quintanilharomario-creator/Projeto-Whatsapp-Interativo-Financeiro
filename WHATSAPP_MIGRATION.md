@@ -38,7 +38,7 @@ from app.infrastructure.whatsapp.cloud_api_provider import CloudAPIProvider
 
 provider = CloudAPIProvider()
 await provider.send_template(
-    phone="5533999469794",
+    phone="5533999469497",
     template_name="monthly_report",   # deve ser pré-aprovado pela Meta
     language_code="pt_BR",
 )
