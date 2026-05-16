@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Hermes logo">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a237e"/>
+      <stop offset="100%" style="stop-color:#283593"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg)"/>
+  <!-- Wings left -->
+  <ellipse cx="22" cy="58" rx="14" ry="7" fill="#00c853" opacity="0.85" transform="rotate(-20 22 58)"/>
+  <ellipse cx="18" cy="52" rx="10" ry="5" fill="#00e676" opacity="0.7" transform="rotate(-35 18 52)"/>
+  <!-- Wings right -->
+  <ellipse cx="98" cy="58" rx="14" ry="7" fill="#00c853" opacity="0.85" transform="rotate(20 98 58)"/>
+  <ellipse cx="102" cy="52" rx="10" ry="5" fill="#00e676" opacity="0.7" transform="rotate(35 102 52)"/>
+  <!-- H letter -->
+  <text x="60" y="82" font-family="Arial Black, sans-serif" font-size="68" font-weight="900" fill="#ffffff" text-anchor="middle" dominant-baseline="auto">H</text>
+</svg>
