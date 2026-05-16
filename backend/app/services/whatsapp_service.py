@@ -18,8 +18,19 @@ from app.services.whatsapp_parser import ParsedMessage, WhatsappParser
 logger = get_logger(__name__)
 
 _MONTH_NAMES_PT = [
-    "", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+    "",
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
 ]
 
 
@@ -364,9 +375,14 @@ class WhatsappService:
             return "Não consegui processar sua mensagem. Tente reformular."
 
         type_label = "receita" if parsed.message_type == MessageType.INCOME else "gasto"
+        cat_display = (
+            f"{parsed.category} › {parsed.subcategory}"
+            if parsed.subcategory
+            else (parsed.category or "Outros")
+        )
         return (
             f"✓ {type_label.capitalize()} de R$ {parsed.amount:.2f} "
-            f"em {parsed.category} registrado!"
+            f"em {cat_display} registrado!"
         )
 
     @staticmethod

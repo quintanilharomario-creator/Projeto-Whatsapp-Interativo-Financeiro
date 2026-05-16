@@ -1,61 +1,36 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from app.infrastructure.database.models.whatsapp_message import MessageType
+
+# ── Type-detection regex (income / expense / query) ───────────────────────────
+
+_EXPENSE_KEYWORDS = re.compile(
+    r"\b(gast\w+|pagu\w+|compr\w+|debit\w+|saiu|sa[ií]da|despesa|d[ií]vida"
+    r"|boleto|paguei|gastei|comprei|torrei|desembolsei|custou)\b",
+    re.IGNORECASE,
+)
+
+_INCOME_KEYWORDS = re.compile(
+    r"\b(recebi|ganhei|entrou|caiu|faturei|embolsei|lucrei|captei|arrecadei"
+    r"|sal[aá]rio|renda|lucro|dep[oó]sito|transferência recebida|pix recebido"
+    r"|pingou|veio|freela|freelance|holerite|dividendos|rendimento)\b",
+    re.IGNORECASE,
+)
+
+_QUERY_KEYWORDS = re.compile(
+    r"\b(saldo|extrato|resumo|quanto|relat[oó]rio|gastos|sobrou|sobra|tenho"
+    r"|balan[cç]o|movimenta\w*|transa\w*)\b",
+    re.IGNORECASE,
+)
+
+# ── Amount regex (handles Brazilian formats + informal amounts via normalizer) ─
 
 _AMOUNT_RE = re.compile(
     r"R?\$?\s*(\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d+(?:,\d{2})?)",
     re.IGNORECASE,
 )
-
-_EXPENSE_KEYWORDS = re.compile(
-    r"\b(gast\w+|pagu\w+|compr\w+|debit\w+|saiu|saída|despesa|d[ií]vida|boleto|paguei|gastei|comprei)\b",
-    re.IGNORECASE,
-)
-
-_INCOME_KEYWORDS = re.compile(
-    r"\b(recebi|ganhei|entrou|sal[aá]rio|renda|lucro|dep[oó]sito|transferência recebida|pix recebido)\b",
-    re.IGNORECASE,
-)
-
-_QUERY_KEYWORDS = re.compile(
-    r"\b(saldo|extrato|resumo|quanto|relat[oó]rio|gastos|sobrou|sobra|tenho|balan[cç]o|movimenta\w*|transa\w*)\b",
-    re.IGNORECASE,
-)
-
-_CATEGORY_MAP = {
-    re.compile(
-        r"\b(mercado|supermercado|feira|aliment|comida|almoço|jantar|café|lanche|restaurante|ifood|delivery)\b",
-        re.IGNORECASE,
-    ): "Alimentação",
-    re.compile(
-        r"\b(uber|taxi|táxi|ônibus|onibus|metrô|metro|gasolina|combustível|combustivel|carro|estacionamento)\b",
-        re.IGNORECASE,
-    ): "Transporte",
-    re.compile(
-        r"\b(luz|energia|água|agua|internet|telefone|cel|aluguel|condomínio|condominio|iptu)\b",
-        re.IGNORECASE,
-    ): "Moradia",
-    re.compile(
-        r"\b(farmácia|farmacia|médico|medico|hospital|plano de saúde|plano saúde|consulta)\b",
-        re.IGNORECASE,
-    ): "Saúde",
-    re.compile(
-        r"\b(netflix|spotify|amazon|cinema|jogo|lazer|bar|show|entretenimento)\b",
-        re.IGNORECASE,
-    ): "Lazer",
-    re.compile(
-        r"\b(sal[aá]rio|freela|freelance|renda|servi[cç]o|pagamento|trabalho|consultoria|venda|comiss[aã]o|b[oô]nus)\b",
-        re.IGNORECASE,
-    ): "Renda",
-    re.compile(
-        r"\b(escola|faculdade|curso|livro|material escolar)\b", re.IGNORECASE
-    ): "Educação",
-    re.compile(
-        r"\b(roupa|sapato|shopping|vestuário|vestuario)\b", re.IGNORECASE
-    ): "Vestuário",
-}
 
 
 @dataclass
@@ -64,10 +39,14 @@ class ParsedMessage:
     amount: Decimal | None
     category: str | None
     confidence: float
+    subcategory: str | None = field(default=None)
 
 
 def _parse_amount(text: str) -> Decimal | None:
-    match = _AMOUNT_RE.search(text)
+    from app.services.categorization.normalizer import preprocess_amount_text
+
+    preprocessed = preprocess_amount_text(text)
+    match = _AMOUNT_RE.search(preprocessed)
     if not match:
         return None
     raw = match.group(1).replace(".", "").replace(",", ".")
@@ -78,11 +57,12 @@ def _parse_amount(text: str) -> Decimal | None:
         return None
 
 
-def _detect_category(text: str) -> str | None:
-    for pattern, category in _CATEGORY_MAP.items():
-        if pattern.search(text):
-            return category
-    return "Outros"
+def _detect_category(text: str, transaction_type: str) -> tuple[str, str | None]:
+    """Return (main_category, subcategory) using the categorization library."""
+    from app.services.categorization.categorizer import categorize
+
+    result = categorize(text, transaction_type)
+    return result.main, result.sub
 
 
 class WhatsappParser:
@@ -102,27 +82,35 @@ class WhatsappParser:
                 confidence=0.9,
             )
 
-        if is_expense and not is_income:
+        # Expense verbs are explicit actions and take priority over income
+        # category keywords when both are present (e.g. "gastei com freela").
+        if is_expense:
+            main, sub = _detect_category(message_text, "EXPENSE")
             return ParsedMessage(
                 message_type=MessageType.EXPENSE,
                 amount=amount,
-                category=_detect_category(message_text),
+                category=main,
+                subcategory=sub,
                 confidence=0.9 if amount else 0.6,
             )
 
         if is_income and not is_expense:
+            main, sub = _detect_category(message_text, "INCOME")
             return ParsedMessage(
                 message_type=MessageType.INCOME,
                 amount=amount,
-                category=_detect_category(message_text),
+                category=main,
+                subcategory=sub,
                 confidence=0.9 if amount else 0.6,
             )
 
         if amount:
+            main, sub = _detect_category(message_text, "EXPENSE")
             return ParsedMessage(
                 message_type=MessageType.EXPENSE,
                 amount=amount,
-                category=_detect_category(message_text),
+                category=main,
+                subcategory=sub,
                 confidence=0.4,
             )
 
