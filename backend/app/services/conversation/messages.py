@@ -20,10 +20,7 @@ NO_TRANSACTION_TO_ACT_ON = (
 
 NOTHING_CHANGED = "Tudo bem, nada foi alterado! 😊"
 
-NO_ACTIVE_STATE = (
-    "Não há nenhuma ação pendente. "
-    "Me diga o que você quer fazer!"
-)
+NO_ACTIVE_STATE = "Não há nenhuma ação pendente. " "Me diga o que você quer fazer!"
 
 ASK_AMOUNT = "Qual foi o valor? 💰"
 

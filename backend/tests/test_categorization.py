@@ -2,7 +2,6 @@
 
 from decimal import Decimal
 
-import pytest
 
 from app.services.categorization.categorizer import CategoryResult, categorize
 from app.services.categorization.normalizer import (
@@ -13,6 +12,7 @@ from app.services.categorization.normalizer import (
 
 
 # ── normalize_text ─────────────────────────────────────────────────────────────
+
 
 def test_normalize_removes_accents():
     assert normalize_text("Salário") == "salario"
@@ -36,6 +36,7 @@ def test_normalize_collapses_whitespace():
 
 
 # ── preprocess_amount_text ─────────────────────────────────────────────────────
+
 
 def test_preprocess_1k():
     assert "1000" in preprocess_amount_text("1k de freela")
@@ -69,6 +70,7 @@ def test_preprocess_strips_pilas():
 
 # ── parse_amount ───────────────────────────────────────────────────────────────
 
+
 def test_parse_amount_brl_format():
     assert parse_amount("R$ 1.500,00") == Decimal("1500.00")
 
@@ -98,6 +100,7 @@ def test_parse_amount_returns_none_for_no_amount():
 
 
 # ── categorize — EXPENSE ───────────────────────────────────────────────────────
+
 
 def test_categorize_expense_mercado():
     r = categorize("fui no mercado", "EXPENSE")
@@ -236,6 +239,7 @@ def test_categorize_expense_fallback_outros():
 
 # ── categorize — INCOME ────────────────────────────────────────────────────────
 
+
 def test_categorize_income_salario():
     r = categorize("recebi salário", "INCOME")
     assert r.main == "Renda"
@@ -298,6 +302,7 @@ def test_categorize_income_reembolso():
 
 # ── Typo tolerance ─────────────────────────────────────────────────────────────
 
+
 def test_typo_mercadoo():
     r = categorize("gastei no mercadoo", "EXPENSE")
     assert r.main == "Alimentação"
@@ -342,6 +347,7 @@ def test_typo_edit_distance_mcdonalds():
 
 
 # ── CategoryResult ─────────────────────────────────────────────────────────────
+
 
 def test_category_result_display_with_sub():
     r = CategoryResult(main="Alimentação", sub="Mercado", confidence=0.9)

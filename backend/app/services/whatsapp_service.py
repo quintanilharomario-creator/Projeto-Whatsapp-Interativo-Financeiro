@@ -27,8 +27,19 @@ from app.services.whatsapp_parser import ParsedMessage, WhatsappParser
 logger = get_logger(__name__)
 
 _MONTH_NAMES_PT = [
-    "", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+    "",
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
 ]
 
 # ── Intents stored in ConversationState.current_intent ───────────────────────
@@ -60,7 +71,9 @@ class WhatsappService:
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        logger.info("whatsapp_user_auto_created", phone=phone_number, user_id=str(user.id))
+        logger.info(
+            "whatsapp_user_auto_created", phone=phone_number, user_id=str(user.id)
+        )
         return user, True
 
     @staticmethod
@@ -90,8 +103,13 @@ class WhatsappService:
                 phone_number, transaction_id
             )
             return await WhatsappService._persist_and_reply(
-                phone_number, user.id, message_text,
-                MessageType.OTHER, response_text, transaction_id, db,
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                response_text,
+                transaction_id,
+                db,
             )
 
         # ── Active conversation state → route to state handler ────────────
@@ -110,8 +128,13 @@ class WhatsappService:
         if conv_intent == ConvIntent.DELETE:
             response_text = await WhatsappService._handle_delete_intent(user.id, db)
             return await WhatsappService._persist_and_reply(
-                phone_number, user.id, message_text,
-                MessageType.OTHER, response_text, None, db,
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                response_text,
+                None,
+                db,
             )
 
         if conv_intent == ConvIntent.EDIT:
@@ -119,14 +142,24 @@ class WhatsappService:
                 message_text, user.id, db
             )
             return await WhatsappService._persist_and_reply(
-                phone_number, user.id, message_text,
-                MessageType.OTHER, response_text, None, db,
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                response_text,
+                None,
+                db,
             )
 
         if conv_intent in (ConvIntent.CONFIRM, ConvIntent.DENY, ConvIntent.NUMBER):
             return await WhatsappService._persist_and_reply(
-                phone_number, user.id, message_text,
-                MessageType.OTHER, msg.NO_ACTIVE_STATE, None, db,
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                msg.NO_ACTIVE_STATE,
+                None,
+                db,
             )
 
         # ── Normal message parsing ─────────────────────────────────────────
@@ -146,7 +179,13 @@ class WhatsappService:
             )
 
         return await WhatsappService._persist_and_reply(
-            phone_number, user.id, message_text, msg_type, response_text, txn_id, db,
+            phone_number,
+            user.id,
+            message_text,
+            msg_type,
+            response_text,
+            txn_id,
+            db,
             parsed=parsed,
         )
 
@@ -192,14 +231,18 @@ class WhatsappService:
                 parsed, user_id, message_text, db
             )
             balance = await WhatsappService._get_balance(user_id, db)
-            type_label = "receita" if parsed.message_type == MessageType.INCOME else "despesa"
+            type_label = (
+                "receita" if parsed.message_type == MessageType.INCOME else "despesa"
+            )
             cat_display = (
                 f"{parsed.category} › {parsed.subcategory}"
                 if parsed.subcategory
                 else (parsed.category or "Outros")
             )
             return (
-                msg.transaction_registered(type_label, parsed.amount, cat_display, balance),
+                msg.transaction_registered(
+                    type_label, parsed.amount, cat_display, balance
+                ),
                 parsed.message_type,
                 txn.id,
             )
@@ -242,9 +285,7 @@ class WhatsappService:
     # ── Delete flow ───────────────────────────────────────────────────────────
 
     @staticmethod
-    async def _handle_delete_intent(
-        user_id: uuid.UUID, db: AsyncSession
-    ) -> str:
+    async def _handle_delete_intent(user_id: uuid.UUID, db: AsyncSession) -> str:
         latest = await TransactionService.get_latest(user_id, db)
         if not latest:
             return msg.NO_TRANSACTION_TO_ACT_ON
@@ -446,7 +487,9 @@ class WhatsappService:
                 )
                 return ParsedMessage(
                     message_type=msg_type,
-                    amount=suggestion.amount if suggestion.amount is not None else fallback.amount,
+                    amount=suggestion.amount
+                    if suggestion.amount is not None
+                    else fallback.amount,
                     category=suggestion.category,
                     confidence=suggestion.confidence,
                 )
@@ -463,7 +506,9 @@ class WhatsappService:
         try:
             from app.services.ai_service import AIService
 
-            return await AIService().enhance_whatsapp_response(response_text, user_id, db)
+            return await AIService().enhance_whatsapp_response(
+                response_text, user_id, db
+            )
         except Exception as e:
             logger.debug("ai_enhance_fallback", reason=str(e))
             return response_text

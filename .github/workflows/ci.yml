@@ -37,7 +37,7 @@ jobs:
 
     env:
       SECRET_KEY: ci-secret-key-at-least-32-characters-long
-      DATABASE_URL: postgresql+asyncpg://saas_user:dev_password_123@localhost:5432/saas_financeiro_test
+      DATABASE_URL: postgresql+psycopg://saas_user:dev_password_123@localhost:5432/saas_financeiro_test
       AI_PROVIDER: claude
       ANTHROPIC_API_KEY: dummy-key-for-ci
       WHATSAPP_VERIFY_TOKEN: ci-verify-token

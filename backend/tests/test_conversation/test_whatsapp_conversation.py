@@ -1,15 +1,13 @@
 """Integration tests for the WhatsApp conversational flow."""
 
 from decimal import Decimal
-from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.database.models.transaction import Transaction, TransactionType
+from app.infrastructure.database.models.transaction import TransactionType
 from app.services.conversation.messages import (
-    NOT_UNDERSTOOD,
     NOTHING_CHANGED,
     NO_ACTIVE_STATE,
     NO_TRANSACTION_TO_ACT_ON,
@@ -42,6 +40,7 @@ async def expense_txn(user, db: AsyncSession):
 
 
 # ── Delete flow ───────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_delete_intent_creates_state(user, expense_txn, db: AsyncSession):
@@ -93,6 +92,7 @@ async def test_delete_state_clears_after_confirm(user, expense_txn, db: AsyncSes
 
 # ── Edit flow ─────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_edit_intent_creates_state(user, expense_txn, db: AsyncSession):
     msg = await WhatsappService.receive_message(PHONE, "era 100, não 50", db)
@@ -137,6 +137,7 @@ async def test_edit_no_transaction(user, db: AsyncSession):
 
 
 # ── Category selection flow ───────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_ambiguous_expense_triggers_menu(user, db: AsyncSession):
@@ -197,7 +198,9 @@ async def test_category_deny_aborts(user, db: AsyncSession):
 async def test_invalid_category_choice_stays_in_state(user, db: AsyncSession):
     await WhatsappService.receive_message(PHONE, "paguei 100", db)
     msg = await WhatsappService.receive_message(PHONE, "xyz_unknown_cat", db)
-    assert "opção" in msg.response_text.lower() or "reconheci" in msg.response_text.lower()
+    assert (
+        "opção" in msg.response_text.lower() or "reconheci" in msg.response_text.lower()
+    )
     # State should still be active
     state = await StateManager.get(user.id, db)
     assert state is not None
@@ -205,10 +208,14 @@ async def test_invalid_category_choice_stays_in_state(user, db: AsyncSession):
 
 # ── Friendly not-understood ───────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_not_understood_shows_help(user, db: AsyncSession):
     msg = await WhatsappService.receive_message(PHONE, "bla bla bla", db)
-    assert "não consegui entender" in msg.response_text.lower() or "📝" in msg.response_text
+    assert (
+        "não consegui entender" in msg.response_text.lower()
+        or "📝" in msg.response_text
+    )
 
 
 @pytest.mark.asyncio
@@ -225,6 +232,7 @@ async def test_lone_confirm_without_state(user, db: AsyncSession):
 
 # ── State expiry ──────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_expired_state_is_ignored(user, expense_txn, db: AsyncSession):
     from datetime import datetime, timedelta, timezone
@@ -234,12 +242,17 @@ async def test_expired_state_is_ignored(user, expense_txn, db: AsyncSession):
     from app.infrastructure.database.models.conversation_state import ConversationState
 
     # Create a state and immediately expire it
-    await StateManager.set(user.id, "AWAITING_DELETE_CONFIRM", {
-        "transaction_id": str(expense_txn.id),
-        "amount": "50.00",
-        "category": "Alimentação",
-        "type_label": "despesa",
-    }, db)
+    await StateManager.set(
+        user.id,
+        "AWAITING_DELETE_CONFIRM",
+        {
+            "transaction_id": str(expense_txn.id),
+            "amount": "50.00",
+            "category": "Alimentação",
+            "type_label": "despesa",
+        },
+        db,
+    )
     await db.execute(
         update(ConversationState)
         .where(ConversationState.user_id == user.id)
