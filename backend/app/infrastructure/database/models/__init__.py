@@ -1,4 +1,5 @@
 from app.infrastructure.database.models.base import Base, TimestampMixin, UUIDMixin
+from app.infrastructure.database.models.consent_log import ConsentLog
 from app.infrastructure.database.models.conversation_state import ConversationState
 from app.infrastructure.database.models.goal import Goal
 from app.infrastructure.database.models.transaction import Transaction, TransactionType
@@ -18,5 +19,6 @@ __all__ = [
     "WhatsappMessage",
     "MessageType",
     "ConversationState",
+    "ConsentLog",
     "Goal",
 ]

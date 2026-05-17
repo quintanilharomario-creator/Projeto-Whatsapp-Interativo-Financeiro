@@ -52,7 +52,11 @@ async def test_name_registration_success(db: AsyncSession):
 
     assert "Romario" in (msg.response_text or "")
     assert "prazer" in (msg.response_text or "").lower()
-    assert "criada com sucesso" in (msg.response_text or "").lower()
+    # After name collection, user sees LGPD consent request
+    assert (
+        "autoriza" in (msg.response_text or "").lower()
+        or "privacidade" in (msg.response_text or "").lower()
+    )
 
 
 # ── 3. Name too short is rejected ────────────────────────────────────────────
@@ -128,6 +132,8 @@ async def test_existing_user_without_name_asked(
 async def test_name_used_in_subsequent_responses(db: AsyncSession):
     await WhatsappService.receive_message(_NEW_PHONE, "oi", db)
     await WhatsappService.receive_message(_NEW_PHONE, "Carlos", db)
+    # Accept LGPD consent so state is cleared and bot can respond normally
+    await WhatsappService.receive_message(_NEW_PHONE, "sim", db)
 
     msg = await WhatsappService.receive_message(_NEW_PHONE, "oi", db)
 

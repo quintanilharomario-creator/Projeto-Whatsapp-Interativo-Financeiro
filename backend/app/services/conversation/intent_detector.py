@@ -10,6 +10,9 @@ class ConvIntent(str, Enum):
     CONFIRM = "CONFIRM"
     DENY = "DENY"
     NUMBER = "NUMBER"
+    MY_DATA = "MY_DATA"
+    DELETE_ACCOUNT = "DELETE_ACCOUNT"
+    EXPORT_DATA = "EXPORT_DATA"
     NONE = "NONE"
 
 
@@ -29,6 +32,26 @@ _CONFIRM_RE = re.compile(
 )
 _DENY_RE = re.compile(
     r"^\s*(n[aã]o|no|n|nega|nope|errado|errada|negativo|cancela|cancelar)\s*[!.]*\s*$",
+    re.IGNORECASE,
+)
+
+_MY_DATA_RE = re.compile(
+    r"\b(meus dados|meus? informa[cç][oõ]es|o que (voc[eê]|vc) sabe sobre mim"
+    r"|meu perfil|meus registros|minhas informa[cç][oõ]es|ver meus dados"
+    r"|acesso aos? dados|meu cadastro)\b",
+    re.IGNORECASE,
+)
+_DELETE_ACCOUNT_RE = re.compile(
+    r"\b(apagar? (minha|meu)? conta|deletar? (minha|meu)? conta|cancelar? (minha|meu)? conta"
+    r"|excluir? (minha|meu)? conta|encerrar? (minha|meu)? conta"
+    r"|remover? (minha|meu)? conta|quero sair|deletar? meus dados"
+    r"|apagar? meus dados|excluir? meus dados)\b",
+    re.IGNORECASE,
+)
+_EXPORT_DATA_RE = re.compile(
+    r"\b(exportar? (meus?)? dados|exportar? transa[cç][oõ]es|baixar? (meus?)? dados"
+    r"|extrato completo|exportar? (meu)? hist[oó]rico|relat[oó]rio completo"
+    r"|download dos? dados)\b",
     re.IGNORECASE,
 )
 
@@ -65,6 +88,12 @@ def detect(text: str) -> tuple[ConvIntent, int | None]:
     if m:
         return ConvIntent.NUMBER, int(m.group(1))
 
+    if _EXPORT_DATA_RE.search(stripped):
+        return ConvIntent.EXPORT_DATA, None
+    if _MY_DATA_RE.search(stripped):
+        return ConvIntent.MY_DATA, None
+    if _DELETE_ACCOUNT_RE.search(stripped):
+        return ConvIntent.DELETE_ACCOUNT, None
     if _DELETE_RE.search(stripped):
         return ConvIntent.DELETE, None
     if _EDIT_RE.search(stripped):

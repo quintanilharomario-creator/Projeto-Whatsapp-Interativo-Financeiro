@@ -52,9 +52,14 @@ _MONTH_NAMES_PT = [
 
 # ── Intents stored in ConversationState.current_intent ───────────────────────
 _AWAIT_NAME = "AWAITING_NAME"
+_AWAIT_CONSENT = "AWAITING_CONSENT"
 _AWAIT_DELETE = "AWAITING_DELETE_CONFIRM"
+_AWAIT_DELETE_ACCOUNT = "AWAITING_DELETE_ACCOUNT_CONFIRMATION"
 _AWAIT_EDIT = "AWAITING_EDIT_CONFIRM"
 _AWAIT_CATEGORY = "AWAITING_CATEGORY"
+
+_POLICY_URL = "https://quingo.com.br/privacy.html"
+_CONFIRM_DELETION_PHRASE = "CONFIRMAR EXCLUSÃO"
 
 _NAME_RE = re.compile(r"[A-Za-zÀ-ÿĀ-ɏ]")
 
@@ -118,6 +123,39 @@ class WhatsappService:
                 db,
             )
 
+        # ── AWAITING_CONSENT: second priority — collect LGPD consent ─────
+        if state and state.current_intent == _AWAIT_CONSENT:
+            response_text = await WhatsappService._handle_consent_response(
+                user, message_text, db
+            )
+            return await WhatsappService._persist_and_reply(
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                response_text,
+                None,
+                db,
+            )
+
+        # ── AWAITING_DELETE_ACCOUNT: handle before generic state dispatch ─
+        # Must be separate because after deletion there is no user to FK-reference.
+        if state and state.current_intent == _AWAIT_DELETE_ACCOUNT:
+            (
+                response_text,
+                _msg_type,
+                _txn,
+            ) = await WhatsappService._handle_delete_account_confirm(
+                message_text, user.id, db
+            )
+            await WhatsappService._try_send_reply(phone_number, response_text)
+            return WhatsappMessage(
+                phone_number=phone_number,
+                message_text=message_text,
+                message_type=_msg_type,
+                response_text=response_text,
+            )
+
         # ── New user: ask for name before anything else ───────────────────
         if is_new:
             await StateManager.set(
@@ -158,7 +196,46 @@ class WhatsappService:
                 phone_number, user.id, message_text, msg_type, response_text, txn_id, db
             )
 
-        # ── Financial intents checked first (greetings, balance, goals, etc.) ──
+        # ── Detect all conversation intents (LGPD must come before financial) ─
+        conv_intent, menu_number = detect(message_text)
+
+        if conv_intent == ConvIntent.MY_DATA:
+            response_text = await WhatsappService._handle_my_data(user.id, db)
+            return await WhatsappService._persist_and_reply(
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                response_text,
+                None,
+                db,
+            )
+        if conv_intent == ConvIntent.EXPORT_DATA:
+            response_text = await WhatsappService._handle_export_data(user.id, db)
+            return await WhatsappService._persist_and_reply(
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                response_text,
+                None,
+                db,
+            )
+        if conv_intent == ConvIntent.DELETE_ACCOUNT:
+            response_text = await WhatsappService._handle_delete_account_intent(
+                user, db
+            )
+            return await WhatsappService._persist_and_reply(
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                response_text,
+                None,
+                db,
+            )
+
+        # ── Financial intents (greetings, balance, goals, etc.) ───────────
         # Must run before DELETE/EDIT so "remover meta" is handled as GOAL_DELETE
         # rather than a generic DELETE command.
         fin_intent, fin_data = detect_financial_intent(message_text)
@@ -190,9 +267,6 @@ class WhatsappService:
                 None,
                 db,
             )
-
-        # ── Detect meta-intents (DELETE / EDIT) ────────────────────────────
-        conv_intent, menu_number = detect(message_text)
 
         if conv_intent == ConvIntent.DELETE:
             response_text = await WhatsappService._handle_delete_intent(user.id, db)
@@ -598,6 +672,69 @@ class WhatsappService:
         if deleted:
             return resp.format_goal_deleted()
         return resp.format_goal_not_found()
+
+    # ── LGPD handlers ─────────────────────────────────────────────────────────
+
+    @staticmethod
+    async def _handle_my_data(user_id: uuid.UUID, db: AsyncSession) -> str:
+        from app.services.lgpd_service import LGPDService
+
+        summary = await LGPDService.get_user_data_summary(user_id, db)
+        return LGPDService.format_data_summary(summary)
+
+    @staticmethod
+    async def _handle_export_data(user_id: uuid.UUID, db: AsyncSession) -> str:
+        from app.services.lgpd_service import LGPDService
+
+        transactions = await LGPDService.export_user_transactions(user_id, db)
+        return LGPDService.format_export(transactions)
+
+    @staticmethod
+    async def _handle_delete_account_intent(user: User, db: AsyncSession) -> str:
+        await StateManager.set(
+            user.id,
+            _AWAIT_DELETE_ACCOUNT,
+            {"user_id": str(user.id)},
+            db,
+            ttl=timedelta(minutes=10),
+        )
+        return (
+            f"⚠️ *Exclusão de conta*\n\n"
+            f"Isso irá apagar *permanentemente* todos os seus dados:\n"
+            f"• Todas as transações\n"
+            f"• Seu perfil e histórico\n"
+            f"• Registros de consentimento\n\n"
+            f"Esta ação é *irreversível*.\n\n"
+            f"Para confirmar, envie exatamente:\n"
+            f"*{_CONFIRM_DELETION_PHRASE}*\n\n"
+            f"Ou envie qualquer outra mensagem para cancelar."
+        )
+
+    @staticmethod
+    async def _handle_delete_account_confirm(
+        message_text: str,
+        user_id: uuid.UUID,
+        db: AsyncSession,
+    ) -> tuple[str, MessageType, uuid.UUID | None]:
+        from app.services.lgpd_service import LGPDService
+
+        await StateManager.clear(user_id, db)
+
+        if message_text.strip() == _CONFIRM_DELETION_PHRASE:
+            await LGPDService.delete_user_data(user_id, db)
+            return (
+                "✅ *Conta excluída com sucesso.*\n\n"
+                "Todos os seus dados foram removidos permanentemente.\n"
+                "Obrigado por usar o Hermes! 👋",
+                MessageType.OTHER,
+                None,
+            )
+
+        return (
+            "❌ Exclusão cancelada. Seus dados estão seguros! 🔒",
+            MessageType.OTHER,
+            None,
+        )
 
     # ── Multi-transaction handler ─────────────────────────────────────────────
 
@@ -1077,17 +1214,98 @@ class WhatsappService:
 
         user.full_name = name
         db.add(user)
-        await StateManager.clear(user.id, db)
+        # Transition to consent collection instead of clearing state
+        await StateManager.set(
+            user.id, _AWAIT_CONSENT, {"name": name}, db, ttl=timedelta(minutes=30)
+        )
 
         return (
             f"Prazer, {name}! 😊\n\n"
-            f"Sua conta foi criada com sucesso!\n\n"
-            f"Você pode:\n"
-            f"💰 'recebi 1000 de salário'\n"
-            f"💸 'gastei 50 no mercado'\n"
-            f"📊 'qual meu saldo?'\n"
-            f"🎤 Mandar áudio também!\n\n"
-            f"O que vai registrar hoje?"
+            f"Antes de começar, preciso da sua autorização para armazenar seus dados financeiros, "
+            f"conforme a *LGPD* (Lei Geral de Proteção de Dados).\n\n"
+            f"📋 Política de privacidade: {_POLICY_URL}\n\n"
+            f"Você autoriza o Hermes a armazenar seus dados para gerenciar suas finanças?\n\n"
+            f"✅ *SIM* — Autorizo\n"
+            f"❌ *NÃO* — Não autorizo"
+        )
+
+    @staticmethod
+    async def _handle_consent_response(
+        user: User,
+        message_text: str,
+        db: AsyncSession,
+    ) -> str:
+        from app.services.lgpd_service import LGPDService
+
+        text = message_text.strip().lower()
+        _YES = {
+            "sim",
+            "s",
+            "yes",
+            "y",
+            "aceito",
+            "ok",
+            "topo",
+            "claro",
+            "autorizo",
+            "concordo",
+            "quero",
+            "pode",
+            "aceitar",
+            "confirmo",
+        }
+        _NO = {
+            "não",
+            "nao",
+            "no",
+            "n",
+            "recuso",
+            "negativo",
+            "não autorizo",
+            "nao autorizo",
+            "não aceito",
+            "nao aceito",
+        }
+
+        is_yes = text in _YES or any(
+            kw in text for kw in ("sim", "aceito", "autorizo", "concordo")
+        )
+        is_no = text in _NO or any(
+            kw in text for kw in ("não", "nao", "recuso", "negativo")
+        )
+
+        phone = user.phone or ""
+
+        if is_yes:
+            await LGPDService.record_consent(user.id, phone, True, db)
+            await StateManager.clear(user.id, db)
+            return (
+                f"✅ *Consentimento registrado!*\n\n"
+                f"Obrigado, {user.full_name.split()[0] if user.full_name else ''}! "
+                f"Seus dados estão protegidos de acordo com a LGPD.\n\n"
+                f"Agora vamos às finanças! 💰\n\n"
+                f"💰 'recebi 1000 de salário'\n"
+                f"💸 'gastei 50 no mercado'\n"
+                f"📊 'qual meu saldo?'\n"
+                f"🎤 Mandar áudio também!\n\n"
+                f"O que vai registrar hoje?"
+            )
+
+        if is_no:
+            await LGPDService.record_consent(user.id, phone, False, db)
+            await StateManager.clear(user.id, db)
+            return (
+                f"😔 Entendido. Sem o consentimento, não posso armazenar seus dados financeiros.\n\n"
+                f"Se mudar de ideia, é só me chamar novamente!\n\n"
+                f"🔒 Política de privacidade: {_POLICY_URL}"
+            )
+
+        # Ambiguous — ask again
+        return (
+            f"Não entendi sua resposta. Por favor, responda:\n\n"
+            f"✅ *SIM* — para autorizar\n"
+            f"❌ *NÃO* — para não autorizar\n\n"
+            f"📋 {_POLICY_URL}"
         )
 
     @staticmethod
