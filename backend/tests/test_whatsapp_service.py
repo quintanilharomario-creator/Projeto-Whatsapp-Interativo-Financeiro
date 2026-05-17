@@ -101,10 +101,11 @@ async def test_auto_create_user_on_first_message(db: AsyncSession):
         db=db,
     )
     assert msg.user_id is not None
-    assert msg.transaction_id is not None
+    # New flow: asks for name first, no transaction registered yet
+    assert msg.transaction_id is None
     assert "hermes" in (msg.response_text or "").lower()
     assert "bem-vindo" in (msg.response_text or "").lower()
-    assert "transação foi registrada" in (msg.response_text or "").lower()
+    assert "nome" in (msg.response_text or "").lower()
 
 
 async def test_receive_other_message(db: AsyncSession, user_with_phone):

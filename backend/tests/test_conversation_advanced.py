@@ -31,6 +31,11 @@ PHONE = "+5511999990099"
 @pytest_asyncio.fixture
 async def user(db: AsyncSession):
     u, _ = await WhatsappService.get_or_create_user(PHONE, db)
+    # Set a real name so the name-registration flow doesn't intercept test messages
+    u.full_name = "Test User"
+    db.add(u)
+    await db.commit()
+    await db.refresh(u)
     return u
 
 

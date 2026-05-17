@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -49,9 +50,12 @@ _MONTH_NAMES_PT = [
 ]
 
 # ── Intents stored in ConversationState.current_intent ───────────────────────
+_AWAIT_NAME = "AWAITING_NAME"
 _AWAIT_DELETE = "AWAITING_DELETE_CONFIRM"
 _AWAIT_EDIT = "AWAITING_EDIT_CONFIRM"
 _AWAIT_CATEGORY = "AWAITING_CATEGORY"
+
+_NAME_RE = re.compile(r"[A-Za-zÀ-ÿĀ-ɏ]")
 
 
 class WhatsappService:
@@ -90,23 +94,13 @@ class WhatsappService:
     ) -> WhatsappMessage:
         user, is_new = await WhatsappService.get_or_create_user(phone_number, db)
 
-        # ── New-user welcome (possibly with first transaction) ─────────────
-        if is_new:
-            parsed = WhatsappParser.parse(message_text)
-            transaction_id: uuid.UUID | None = None
-            if (
-                parsed.message_type in (MessageType.INCOME, MessageType.EXPENSE)
-                and parsed.amount
-                and parsed.confidence >= 0.5
-                and (parsed.category or "Outros") != "Outros"
-            ):
-                txn = await WhatsappService._do_create_transaction(
-                    parsed, user.id, message_text, db
-                )
-                transaction_id = txn.id
+        # ── Get active state early (needed for AWAITING_NAME priority) ────
+        state = await StateManager.get(user.id, db)
 
-            response_text = WhatsappService._build_welcome_message(
-                phone_number, transaction_id
+        # ── AWAITING_NAME: highest priority — capture and save name ───────
+        if state and state.current_intent == _AWAIT_NAME:
+            response_text = await WhatsappService._handle_name_registration(
+                user, message_text, db
             )
             return await WhatsappService._persist_and_reply(
                 phone_number,
@@ -114,12 +108,42 @@ class WhatsappService:
                 message_text,
                 MessageType.OTHER,
                 response_text,
-                transaction_id,
+                None,
+                db,
+            )
+
+        # ── New user: ask for name before anything else ───────────────────
+        if is_new:
+            await StateManager.set(
+                user.id, _AWAIT_NAME, {}, db, ttl=timedelta(minutes=30)
+            )
+            response_text = WhatsappService._build_welcome_message()
+            return await WhatsappService._persist_and_reply(
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                response_text,
+                None,
+                db,
+            )
+
+        # ── Existing user without a real name: ask for name ───────────────
+        if user.full_name.startswith("WhatsApp ") and state is None:
+            await StateManager.set(
+                user.id, _AWAIT_NAME, {}, db, ttl=timedelta(minutes=30)
+            )
+            return await WhatsappService._persist_and_reply(
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                "Oi! Nunca me disseram seu nome... Como você se chama? 😊",
+                None,
                 db,
             )
 
         # ── Active conversation state → route to state handler ────────────
-        state = await StateManager.get(user.id, db)
         if state:
             response_text, msg_type, txn_id = await WhatsappService._dispatch_state(
                 state, message_text, user.id, db
@@ -148,7 +172,9 @@ class WhatsappService:
                 FinancialIntent.INSIGHT,
                 FinancialIntent.GOAL_QUERY,
             }
-            fin_msg_type = MessageType.QUERY if fin_intent in _QUERY_INTENTS else MessageType.OTHER
+            fin_msg_type = (
+                MessageType.QUERY if fin_intent in _QUERY_INTENTS else MessageType.OTHER
+            )
             return await WhatsappService._persist_and_reply(
                 phone_number,
                 user.id,
@@ -1026,21 +1052,42 @@ class WhatsappService:
         return "R$ " + formatted.replace(",", "X").replace(".", ",").replace("X", ".")
 
     @staticmethod
-    def _build_welcome_message(
-        phone_number: str, transaction_id: uuid.UUID | None
+    async def _handle_name_registration(
+        user: User,
+        name_input: str,
+        db: AsyncSession,
     ) -> str:
-        txn_line = "\n\nSua transação foi registrada! 🎉" if transaction_id else ""
+        name = name_input.strip()
+
+        if len(name) < 2 or not _NAME_RE.search(name):
+            return "Por favor, me diz seu nome completo! 😊"
+
+        if len(name) > 50:
+            name = name[:50].strip()
+
+        name = name.title()
+
+        user.full_name = name
+        db.add(user)
+        await StateManager.clear(user.id, db)
+
         return (
-            f"👋 Olá! Bem-vindo ao Hermes!\n\n"
-            f"Sou seu assistente financeiro pessoal.\n\n"
-            f"✅ Sua conta foi criada automaticamente\n"
-            f"📱 Vinculada a: {phone_number}\n\n"
+            f"Prazer, {name}! 😊\n\n"
+            f"Sua conta foi criada com sucesso!\n\n"
             f"Você pode:\n"
-            f"💰 Registrar receitas: 'recebi 1000 de salário'\n"
-            f"💸 Registrar despesas: 'gastei 50 no mercado'\n"
-            f"📊 Ver saldo: 'qual meu saldo?'\n"
-            f"🎤 Mandar áudio com qualquer comando"
-            f"{txn_line}"
+            f"💰 'recebi 1000 de salário'\n"
+            f"💸 'gastei 50 no mercado'\n"
+            f"📊 'qual meu saldo?'\n"
+            f"🎤 Mandar áudio também!\n\n"
+            f"O que vai registrar hoje?"
+        )
+
+    @staticmethod
+    def _build_welcome_message() -> str:
+        return (
+            "👋 Olá! Bem-vindo ao *Hermes*!\n\n"
+            "Sou seu assistente financeiro pessoal no WhatsApp. 🤖💰\n\n"
+            "Antes de começar, qual é o seu nome?"
         )
 
     @staticmethod

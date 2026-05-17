@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.models.conversation_state import ConversationState
 
 _TTL = timedelta(minutes=5)
+_TTL_NAME = timedelta(minutes=30)
 
 
 class StateManager:
@@ -27,6 +28,7 @@ class StateManager:
         intent: str,
         data: dict[str, Any],
         db: AsyncSession,
+        ttl: timedelta | None = None,
     ) -> ConversationState:
         await db.execute(
             delete(ConversationState).where(ConversationState.user_id == user_id)
@@ -35,7 +37,7 @@ class StateManager:
             user_id=user_id,
             current_intent=intent,
             pending_data=data,
-            expires_at=datetime.now(timezone.utc) + _TTL,
+            expires_at=datetime.now(timezone.utc) + (ttl if ttl is not None else _TTL),
         )
         db.add(state)
         await db.flush()

@@ -132,7 +132,9 @@ async def test_receive_webhook_unknown_user_auto_creates(client: AsyncClient):
     )
     data = msgs.json()
     assert data[0]["user_id"] is not None
-    assert data[0]["transaction_id"] is not None
+    # New flow: new user is asked for their name first, no transaction yet
+    assert data[0]["transaction_id"] is None
+    assert "nome" in (data[0]["response_text"] or "").lower()
 
 
 async def test_receive_webhook_ignores_non_text(client: AsyncClient):
