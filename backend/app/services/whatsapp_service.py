@@ -1,5 +1,6 @@
 import re
 import uuid
+from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -56,6 +57,11 @@ _AWAIT_EDIT = "AWAITING_EDIT_CONFIRM"
 _AWAIT_CATEGORY = "AWAITING_CATEGORY"
 
 _NAME_RE = re.compile(r"[A-Za-zÀ-ÿĀ-ɏ]")
+
+# Prefix injected by audio transcription so the user sees what was understood
+_audio_response_prefix: ContextVar[str | None] = ContextVar(
+    "_audio_response_prefix", default=None
+)
 
 
 class WhatsappService:
@@ -993,15 +999,17 @@ class WhatsappService:
         db: AsyncSession,
         parsed: "ParsedMessage | None" = None,
     ) -> WhatsappMessage:
+        prefix = _audio_response_prefix.get()
+        full_response = (prefix + response_text) if prefix else response_text
         await WhatsappService._try_send_reply(
-            phone_number, response_text, within_window=True
+            phone_number, full_response, within_window=True
         )
         whatsapp_msg = WhatsappMessage(
             user_id=user_id,
             phone_number=phone_number,
             message_text=message_text,
             message_type=msg_type,
-            response_text=response_text,
+            response_text=full_response,
             transaction_id=transaction_id,
             extracted_amount=parsed.amount if parsed else None,
             category=parsed.category if parsed else None,
@@ -1154,6 +1162,24 @@ class WhatsappService:
             await db.refresh(whatsapp_msg)
             return whatsapp_msg
 
+        # ── Audio quality check ────────────────────────────────────────────
+        if len(audio_bytes) < 3000:
+            _TOO_SHORT = (
+                "Não consegui ouvir bem.\n" "Pode repetir mais próximo do microfone? 🎤"
+            )
+            logger.warning("audio_too_short", phone=phone_number, size=len(audio_bytes))
+            await WhatsappService._try_send_reply(phone_number, _TOO_SHORT)
+            whatsapp_msg = WhatsappMessage(
+                phone_number=phone_number,
+                message_text="[áudio — muito curto ou silencioso]",
+                message_type=MessageType.OTHER,
+                response_text=_TOO_SHORT,
+            )
+            db.add(whatsapp_msg)
+            await db.commit()
+            await db.refresh(whatsapp_msg)
+            return whatsapp_msg
+
         try:
             text = await WhisperProvider().transcribe(audio_bytes, filename="audio.ogg")
             logger.info("audio_transcribed", phone=phone_number, preview=text[:50])
@@ -1173,11 +1199,16 @@ class WhatsappService:
             await db.refresh(whatsapp_msg)
             return whatsapp_msg
 
-        return await WhatsappService.receive_message(
-            phone_number=phone_number,
-            message_text=text,
-            db=db,
-        )
+        # ── Include transcription in response so user sees what was understood ─
+        token = _audio_response_prefix.set(f"🎤 Entendi: '{text}'\n")
+        try:
+            return await WhatsappService.receive_message(
+                phone_number=phone_number,
+                message_text=text,
+                db=db,
+            )
+        finally:
+            _audio_response_prefix.reset(token)
 
     @staticmethod
     async def _is_within_24h_window(phone_number: str, db: AsyncSession) -> bool:

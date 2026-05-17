@@ -72,7 +72,7 @@ async def test_webhook_audio_success_stores_message(
         patch.object(_settings, "OPENAI_API_KEY", "test-key-for-audio"),
         patch(
             "app.api.v1.endpoints.whatsapp.download_audio",
-            new=AsyncMock(return_value=b"fake-ogg-audio-content"),
+            new=AsyncMock(return_value=b"x" * 4000),
         ),
         patch(
             "app.infrastructure.audio.whisper_provider.WhisperProvider.transcribe",
@@ -160,12 +160,16 @@ async def test_webhook_audio_download_failure_sends_fallback(client: AsyncClient
 async def test_webhook_audio_transcription_failure_fallback(
     client: AsyncClient, db: AsyncSession
 ):
-    """Whisper error → fallback message stored in DB, friendly reply sent."""
+    """Whisper error → fallback message stored in DB, friendly reply sent.
+
+    Two _try_send_reply calls are expected: the immediate ack ("Recebi seu áudio!")
+    sent in the endpoint, and the fallback error sent inside transcribe_and_process.
+    """
     with (
         patch.object(_settings, "OPENAI_API_KEY", "test-key-for-audio"),
         patch(
             "app.api.v1.endpoints.whatsapp.download_audio",
-            new=AsyncMock(return_value=b"audio-bytes"),
+            new=AsyncMock(return_value=b"x" * 4000),
         ),
         patch(
             "app.infrastructure.audio.whisper_provider.WhisperProvider.transcribe",
@@ -189,7 +193,8 @@ async def test_webhook_audio_transcription_failure_fallback(
     assert len(data) == 1
     assert "transcrição falhou" in data[0]["message_text"]
     assert data[0]["message_type"] == "OTHER"
-    mock_reply.assert_called_once()
+    # ack ("Recebi seu áudio!") + fallback error = 2 calls
+    assert mock_reply.call_count == 2
     assert "áudio" in mock_reply.call_args[0][1].lower()
 
 
@@ -243,12 +248,13 @@ async def test_transcribe_and_process_success(db: AsyncSession):
     ):
         msg = await WhatsappService.transcribe_and_process(
             phone_number="+5511000000001",
-            audio_bytes=b"fake-audio",
+            audio_bytes=b"x" * 4000,
             db=db,
         )
 
     assert msg.message_text == "Recebi R$500 de freelance"
     assert msg.phone_number == "+5511000000001"
+    assert "🎤 Entendi:" in (msg.response_text or "")
 
 
 async def test_transcribe_and_process_whisper_error_returns_fallback(db: AsyncSession):
@@ -268,10 +274,56 @@ async def test_transcribe_and_process_whisper_error_returns_fallback(db: AsyncSe
     ):
         msg = await WhatsappService.transcribe_and_process(
             phone_number="+5511000000002",
-            audio_bytes=b"fake-audio",
+            audio_bytes=b"x" * 4000,
             db=db,
         )
 
     assert "transcrição falhou" in msg.message_text
     assert msg.phone_number == "+5511000000002"
     assert "áudio" in (msg.response_text or "").lower()
+
+
+async def test_transcribe_and_process_audio_too_short(db: AsyncSession):
+    """Audio < 3 KB triggers friendly rejection without calling Whisper."""
+    from app.services.whatsapp_service import WhatsappService
+
+    with (
+        patch.object(_settings, "OPENAI_API_KEY", "test-key-for-audio"),
+        patch(
+            "app.services.whatsapp_service.WhatsappService._try_send_reply",
+            new=AsyncMock(),
+        ) as mock_reply,
+    ):
+        msg = await WhatsappService.transcribe_and_process(
+            phone_number="+5511000000003",
+            audio_bytes=b"short",
+            db=db,
+        )
+
+    assert "muito curto" in msg.message_text
+    assert "microfone" in (msg.response_text or "").lower()
+    mock_reply.assert_called_once()
+
+
+async def test_webhook_audio_short_audio_detected(client: AsyncClient):
+    """Small audio bytes from webhook trigger 'too short' reply, no DB transaction."""
+    with (
+        patch.object(_settings, "OPENAI_API_KEY", "test-key-for-audio"),
+        patch(
+            "app.api.v1.endpoints.whatsapp.download_audio",
+            new=AsyncMock(return_value=b"tiny"),
+        ),
+        patch(
+            "app.services.whatsapp_service.WhatsappService._try_send_reply",
+            new=AsyncMock(),
+        ) as mock_reply,
+    ):
+        response = await client.post(
+            "/api/v1/whatsapp/webhook", json=_audio_payload("+5511100000001")
+        )
+
+    assert response.status_code == 200
+    # ack ("Recebi seu áudio!") + too-short rejection = 2 calls
+    assert mock_reply.call_count == 2
+    short_reply_text = mock_reply.call_args_list[1][0][1]
+    assert "microfone" in short_reply_text.lower()

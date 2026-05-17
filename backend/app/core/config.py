@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     # AUDIO
     # ==========================================
     WHISPER_MODEL: str = "whisper-1"
+    WHISPER_MODEL_SIZE: str = "medium"
 
     TTS_PROVIDER: str = "openai"
     TTS_VOICE: str = "nova"

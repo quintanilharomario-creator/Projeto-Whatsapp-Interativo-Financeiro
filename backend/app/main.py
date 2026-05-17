@@ -51,6 +51,14 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error("migrations_erro", error=str(exc))
 
+    try:
+        from app.infrastructure.audio.local_whisper_provider import LocalWhisperProvider
+
+        await loop.run_in_executor(None, LocalWhisperProvider)
+        logger.info("whisper_model_ready")
+    except Exception as e:
+        logger.warning("whisper_load_skipped", reason=str(e))
+
     yield
 
     logger.info("aplicacao_encerrando", app=settings.APP_NAME)

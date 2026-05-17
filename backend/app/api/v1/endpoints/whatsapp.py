@@ -58,6 +58,10 @@ async def receive_webhook(
                         )
                         continue
 
+                    await WhatsappService._try_send_reply(
+                        meta_msg.from_,
+                        "🎤 Recebi seu áudio! Processando...",
+                    )
                     await WhatsappService.transcribe_and_process(
                         phone_number=meta_msg.from_,
                         audio_bytes=audio_bytes,
