@@ -16,6 +16,12 @@ from app.infrastructure.database.models.whatsapp_message import (
 from app.services.conversation import ConvIntent, StateManager, detect
 from app.services.conversation.intent_detector import extract_edit_amounts
 from app.services.conversation import messages as msg
+from app.services.conversation.financial_intents import (
+    FinancialIntent,
+    detect_financial_intent,
+)
+from app.services.conversation.multi_transaction import split_transactions
+from app.services.conversation import responses as resp
 from app.services.conversation.suggestion_engine import (
     expense_menu,
     income_menu,
@@ -122,6 +128,24 @@ class WhatsappService:
                 phone_number, user.id, message_text, msg_type, response_text, txn_id, db
             )
 
+        # ── Financial intents checked first (greetings, balance, goals, etc.) ──
+        # Must run before DELETE/EDIT so "remover meta" is handled as GOAL_DELETE
+        # rather than a generic DELETE command.
+        fin_intent, fin_data = detect_financial_intent(message_text)
+        if fin_intent != FinancialIntent.NONE:
+            response_text = await WhatsappService._handle_financial_intent(
+                fin_intent, fin_data, message_text, user, db
+            )
+            return await WhatsappService._persist_and_reply(
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.OTHER,
+                response_text,
+                None,
+                db,
+            )
+
         # ── Detect meta-intents (DELETE / EDIT) ────────────────────────────
         conv_intent, menu_number = detect(message_text)
 
@@ -162,6 +186,22 @@ class WhatsappService:
                 db,
             )
 
+        # ── Multi-transaction check ────────────────────────────────────────
+        parts = split_transactions(message_text)
+        if parts and len(parts) >= 2:
+            response_text = await WhatsappService._handle_multi_transaction(
+                parts, user.id, db
+            )
+            return await WhatsappService._persist_and_reply(
+                phone_number,
+                user.id,
+                message_text,
+                MessageType.EXPENSE,
+                response_text,
+                None,
+                db,
+            )
+
         # ── Normal message parsing ─────────────────────────────────────────
         parsed = WhatsappParser.parse(message_text)
         if parsed.message_type in (MessageType.INCOME, MessageType.EXPENSE):
@@ -188,6 +228,370 @@ class WhatsappService:
             db,
             parsed=parsed,
         )
+
+    # ── Financial intent dispatcher ───────────────────────────────────────────
+
+    @staticmethod
+    async def _handle_financial_intent(
+        intent: FinancialIntent,
+        data: dict,
+        message_text: str,
+        user: User,
+        db: AsyncSession,
+    ) -> str:
+        uid = user.id
+
+        if intent == FinancialIntent.GREETING:
+            return await WhatsappService._handle_greeting(user, db)
+
+        if intent == FinancialIntent.THANKS:
+            return resp.format_thanks(user.full_name)
+
+        if intent == FinancialIntent.GOODBYE:
+            return await WhatsappService._handle_goodbye(user, db)
+
+        if intent == FinancialIntent.HELP:
+            return resp.format_help()
+
+        if intent == FinancialIntent.BALANCE:
+            return await WhatsappService._handle_balance_query(uid, db)
+
+        temporal_map = {
+            FinancialIntent.TEMPORAL_TODAY: "today",
+            FinancialIntent.TEMPORAL_YESTERDAY: "yesterday",
+            FinancialIntent.TEMPORAL_WEEK: "week",
+            FinancialIntent.TEMPORAL_MONTH: "month",
+            FinancialIntent.TEMPORAL_LAST_MONTH: "last_month",
+        }
+        if intent in temporal_map:
+            return await WhatsappService._handle_temporal_query(
+                temporal_map[intent], uid, db
+            )
+
+        if intent == FinancialIntent.CATEGORY_QUERY:
+            return await WhatsappService._handle_category_query(
+                data.get("category", ""), uid, db
+            )
+
+        if intent == FinancialIntent.PLANNING:
+            return await WhatsappService._handle_planning_query(
+                data.get("amount"), uid, db
+            )
+
+        if intent == FinancialIntent.INSIGHT:
+            return await WhatsappService._handle_insight_request(uid, db)
+
+        if intent == FinancialIntent.GOAL_CREATE:
+            return await WhatsappService._handle_goal_create(
+                data.get("amount"), uid, db
+            )
+
+        if intent == FinancialIntent.GOAL_QUERY:
+            return await WhatsappService._handle_goal_query(uid, db)
+
+        if intent == FinancialIntent.GOAL_DELETE:
+            return await WhatsappService._handle_goal_delete(uid, db)
+
+        return msg.NOT_UNDERSTOOD
+
+    # ── Greeting / goodbye ────────────────────────────────────────────────────
+
+    @staticmethod
+    async def _handle_greeting(user: User, db: AsyncSession) -> str:
+        try:
+            balance_data = await WhatsappService._get_balance(user.id, db)
+            return resp.format_greeting(
+                user.full_name, balance_data, datetime.now(timezone.utc)
+            )
+        except Exception:
+            return resp.format_greeting(
+                user.full_name, Decimal("0"), datetime.now(timezone.utc)
+            )
+
+    @staticmethod
+    async def _handle_goodbye(user: User, db: AsyncSession) -> str:
+        try:
+            balance_data = await WhatsappService._get_balance(user.id, db)
+            return resp.format_goodbye(
+                user.full_name, balance_data, datetime.now(timezone.utc)
+            )
+        except Exception:
+            return resp.format_goodbye(
+                user.full_name, Decimal("0"), datetime.now(timezone.utc)
+            )
+
+    # ── Balance query (enhanced) ──────────────────────────────────────────────
+
+    @staticmethod
+    async def _handle_balance_query(user_id: uuid.UUID, db: AsyncSession) -> str:
+        from app.services.report_service import ReportService
+
+        now = datetime.now(timezone.utc)
+        try:
+            balance = await ReportService.get_balance(user_id, db)
+            monthly = await ReportService.get_monthly_report(
+                user_id, now.year, now.month, db
+            )
+            return resp.format_balance(balance, monthly, now)
+        except Exception as e:
+            logger.warning("balance_query_failed", error=str(e))
+            return "Não consegui buscar seus dados agora. Tente novamente em instantes."
+
+    # ── Temporal queries ──────────────────────────────────────────────────────
+
+    @staticmethod
+    async def _handle_temporal_query(
+        period: str, user_id: uuid.UUID, db: AsyncSession
+    ) -> str:
+        from app.services.conversation.temporal_parser import (
+            parse_last_month,
+            parse_this_month,
+            parse_this_week,
+            parse_today,
+            parse_yesterday,
+        )
+
+        parser_map = {
+            "today": parse_today,
+            "yesterday": parse_yesterday,
+            "week": parse_this_week,
+            "month": parse_this_month,
+            "last_month": parse_last_month,
+        }
+        start_dt, end_dt, label = parser_map[period]()
+
+        if period == "month":
+            # Full monthly summary with category breakdown
+            from app.services.report_service import ReportService
+
+            now = datetime.now(timezone.utc)
+            try:
+                monthly = await ReportService.get_monthly_report(
+                    user_id, now.year, now.month, db
+                )
+                return resp.format_monthly_full(monthly, now)
+            except Exception as e:
+                logger.warning("monthly_report_failed", error=str(e))
+                return "Não consegui buscar o resumo do mês agora."
+
+        if period == "last_month":
+            from app.services.report_service import ReportService
+
+            try:
+                monthly = await ReportService.get_monthly_report(
+                    user_id, start_dt.year, start_dt.month, db
+                )
+                return resp.format_monthly_full(monthly, start_dt)
+            except Exception as e:
+                logger.warning("last_month_report_failed", error=str(e))
+                return "Não consegui buscar o resumo do mês passado agora."
+
+        transactions = await TransactionService.list_by_user(
+            user_id, db, date_from=start_dt, date_to=end_dt
+        )
+        return resp.format_temporal_summary(
+            transactions, label, datetime.now(timezone.utc)
+        )
+
+    # ── Category query ────────────────────────────────────────────────────────
+
+    @staticmethod
+    async def _handle_category_query(
+        category: str, user_id: uuid.UUID, db: AsyncSession
+    ) -> str:
+        from app.services.report_service import ReportService
+
+        now = datetime.now(timezone.utc)
+        try:
+            monthly = await ReportService.get_monthly_report(
+                user_id, now.year, now.month, db
+            )
+            total_expense = monthly["total_expense"]
+
+            if not category:
+                # "onde gasto mais" → show top categories
+                by_cat = monthly.get("by_category", [])
+                if not by_cat:
+                    return "📊 Nenhuma despesa registrada este mês."
+                lines = [f"📊 *Top categorias de {_MONTH_NAMES_PT[now.month]}:*\n"]
+                for i, cat in enumerate(by_cat[:5], 1):
+                    from app.services.conversation.responses import _cat_emoji
+
+                    emoji = _cat_emoji(cat["category"])
+                    pct = int(cat["percentage"])
+                    lines.append(
+                        f"{emoji} {cat['category']}: {_fmt(cat['total'])} ({pct}%)"
+                    )
+                return "\n".join(lines)
+
+            # Filter transactions by category (case-insensitive)
+            all_txns = await TransactionService.list_by_user(user_id, db)
+            from app.infrastructure.database.models.transaction import (
+                TransactionType as TT,
+            )
+
+            cat_txns = [
+                t
+                for t in all_txns
+                if t.type == TT.EXPENSE and category.lower() in t.category.lower()
+            ]
+            # Limit to current month
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            cat_txns = [t for t in cat_txns if t.date >= month_start]
+
+            cat_display = category.capitalize() if category else "Categoria"
+            return resp.format_category_breakdown(
+                cat_display, cat_txns, total_expense, now
+            )
+        except Exception as e:
+            logger.warning("category_query_failed", error=str(e))
+            return "Não consegui buscar os dados de categoria agora."
+
+    # ── Planning query ────────────────────────────────────────────────────────
+
+    @staticmethod
+    async def _handle_planning_query(
+        amount: Decimal | None, user_id: uuid.UUID, db: AsyncSession
+    ) -> str:
+        now = datetime.now(timezone.utc)
+        try:
+            balance = await WhatsappService._get_balance(user_id, db)
+        except Exception:
+            balance = Decimal("0")
+
+        if amount is None:
+            import calendar
+
+            last_day = calendar.monthrange(now.year, now.month)[1]
+            days_left = max(0, last_day - now.day)
+            daily = balance / days_left if days_left > 0 else balance
+            return (
+                f"💡 *Quanto você pode gastar?*\n\n"
+                f"💰 Saldo atual: *{_fmt(balance)}*\n"
+                f"📅 Faltam {days_left} dia(s) até fim do mês\n"
+                f"💡 Daria *{_fmt(daily)}/dia* restantes"
+            )
+
+        if amount <= balance:
+            return resp.format_planning_can(amount, balance, now)
+        return resp.format_planning_cannot(amount, balance)
+
+    # ── Insight request ───────────────────────────────────────────────────────
+
+    @staticmethod
+    async def _handle_insight_request(user_id: uuid.UUID, db: AsyncSession) -> str:
+        try:
+            from app.services.ai_service import AIService
+            from app.services.report_service import ReportService
+
+            now = datetime.now(timezone.utc)
+            monthly = await ReportService.get_monthly_report(
+                user_id, now.year, now.month, db
+            )
+            summary = await ReportService.get_summary(user_id, db)
+            context = (
+                f"Gastos do mês: {monthly['total_expense']}\n"
+                f"Receitas: {monthly['total_income']}\n"
+                f"Por categoria: {monthly.get('by_category', [])}\n"
+                f"Últimas transações: {summary.get('recent_transactions', [])}"
+            )
+            result = await AIService().answer_question(
+                question="Analise meus gastos e dê 2-3 dicas práticas para economizar. "
+                "Seja específico com os valores reais. Resposta curta, em português, com emojis.",
+                context=context,
+                user_id=str(user_id),
+            )
+            return f"💡 *Análise dos seus gastos*\n\n{result}"
+        except Exception as e:
+            logger.warning("insight_request_failed", error=str(e))
+            return (
+                "💡 *Dicas para economizar:*\n\n"
+                "1️⃣ Registre todos os gastos diariamente\n"
+                "2️⃣ Crie uma meta de economia mensal\n"
+                "3️⃣ Revise as categorias onde mais gasta\n\n"
+                "Para análise personalizada, diga 'resumo do mês' primeiro! 📊"
+            )
+
+    # ── Goal handlers ─────────────────────────────────────────────────────────
+
+    @staticmethod
+    async def _handle_goal_create(
+        amount: Decimal | None, user_id: uuid.UUID, db: AsyncSession
+    ) -> str:
+        from app.services.goals import GoalService
+
+        if not amount or amount <= 0:
+            return (
+                "🎯 Qual valor você quer economizar?\n\n"
+                "Exemplo: _'quero economizar 1000 esse mês'_"
+            )
+
+        goal = await GoalService.create(user_id, amount, db)
+        progress = await GoalService.calculate_progress(user_id, db)
+        saved = progress.get("saved", Decimal("0"))
+        return resp.format_goal_created(amount, saved, goal.period_end)
+
+    @staticmethod
+    async def _handle_goal_query(user_id: uuid.UUID, db: AsyncSession) -> str:
+        from app.services.goals import GoalService
+
+        progress = await GoalService.calculate_progress(user_id, db)
+        if not progress:
+            return resp.format_no_goal()
+
+        return resp.format_goal_progress(
+            progress["target"],
+            progress["saved"],
+            progress["period_end"],
+        )
+
+    @staticmethod
+    async def _handle_goal_delete(user_id: uuid.UUID, db: AsyncSession) -> str:
+        from app.services.goals import GoalService
+
+        deleted = await GoalService.deactivate(user_id, db)
+        if deleted:
+            return resp.format_goal_deleted()
+        return resp.format_goal_not_found()
+
+    # ── Multi-transaction handler ─────────────────────────────────────────────
+
+    @staticmethod
+    async def _handle_multi_transaction(
+        parts: list[str], user_id: uuid.UUID, db: AsyncSession
+    ) -> str:
+        results: list[tuple[str, Decimal, str]] = []
+
+        for part in parts:
+            try:
+                parsed = WhatsappParser.parse(part)
+                if (
+                    parsed.message_type not in (MessageType.INCOME, MessageType.EXPENSE)
+                    or not parsed.amount
+                ):
+                    continue
+                txn = await WhatsappService._do_create_transaction(
+                    parsed, user_id, part, db
+                )
+                type_label = (
+                    "receita"
+                    if parsed.message_type == MessageType.INCOME
+                    else "despesa"
+                )
+                cat_display = (
+                    f"{parsed.category} › {parsed.subcategory}"
+                    if parsed.subcategory
+                    else (parsed.category or "Outros")
+                )
+                results.append((type_label, txn.amount, cat_display))
+            except Exception as e:
+                logger.warning("multi_transaction_part_failed", part=part, error=str(e))
+
+        if not results:
+            return msg.NOT_UNDERSTOOD
+
+        balance = await WhatsappService._get_balance(user_id, db)
+        return resp.format_multi_transactions(results, balance)
 
     # ── Normal message handler ────────────────────────────────────────────────
 

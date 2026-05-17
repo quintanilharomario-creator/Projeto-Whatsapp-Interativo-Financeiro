@@ -49,7 +49,10 @@ async def db(ensure_test_tables):
     engine = _make_engine()
     async with engine.begin() as conn:
         await conn.execute(
-            text("TRUNCATE TABLE whatsapp_messages, users RESTART IDENTITY CASCADE")
+            text(
+                "TRUNCATE TABLE whatsapp_messages, goals, conversation_states, users"
+                " RESTART IDENTITY CASCADE"
+            )
         )
     async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session
