@@ -201,12 +201,12 @@ async def test_webhook_audio_transcription_failure_fallback(
 async def test_webhook_audio_no_openai_key_fallback(
     client: AsyncClient, db: AsyncSession
 ):
-    """Without OPENAI_API_KEY, audio is rejected with a friendly stored message."""
+    """Without OPENAI_API_KEY and no local model loaded, audio falls back gracefully."""
     with (
         patch.object(_settings, "OPENAI_API_KEY", ""),
         patch(
             "app.api.v1.endpoints.whatsapp.download_audio",
-            new=AsyncMock(return_value=b"audio-bytes"),
+            new=AsyncMock(return_value=b"x" * 4000),
         ),
         patch(
             "app.services.whatsapp_service.WhatsappService._try_send_reply",
@@ -224,7 +224,9 @@ async def test_webhook_audio_no_openai_key_fallback(
     )
     data = msgs.json()
     assert len(data) == 1
-    assert "OPENAI_API_KEY" in data[0]["message_text"]
+    # LocalWhisperProvider._model is None in tests and OPENAI_API_KEY is empty →
+    # falls through to the generic transcription-failed fallback
+    assert "transcrição falhou" in data[0]["message_text"]
     assert data[0]["message_type"] == "OTHER"
 
 

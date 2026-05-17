@@ -11,6 +11,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.cache.redis_client import cache_get, cache_set
 from app.infrastructure.database.models.transaction import Transaction, TransactionType
 
+_DECIMAL_MONEY_FIELDS = {"total_income", "total_expense", "balance"}
+
+
+def _restore_decimals(data: dict) -> dict:
+    """Convert money fields back to Decimal after JSON cache deserialization.
+
+    json.dumps(default=str) serializes Decimal as plain strings. Reading them
+    back without conversion would break format specifiers like ',.2f'.
+    """
+    for field in _DECIMAL_MONEY_FIELDS:
+        if field in data and not isinstance(data[field], Decimal):
+            data[field] = Decimal(str(data[field]))
+    for cat in data.get("by_category", []):
+        if "total" in cat and not isinstance(cat["total"], Decimal):
+            cat["total"] = Decimal(str(cat["total"]))
+    return data
+
 
 class ReportService:
     @staticmethod
@@ -18,7 +35,7 @@ class ReportService:
         cache_key = f"report:balance:{user_id}"
         cached = await cache_get(cache_key)
         if cached is not None:
-            return cached
+            return _restore_decimals(cached)
 
         result = await db.execute(
             select(Transaction).where(Transaction.user_id == user_id)
@@ -50,7 +67,7 @@ class ReportService:
         cache_key = f"report:monthly:{user_id}:{year}:{month:02d}"
         cached = await cache_get(cache_key)
         if cached is not None:
-            return cached
+            return _restore_decimals(cached)
 
         last_day = calendar.monthrange(year, month)[1]
         date_from = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)

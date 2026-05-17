@@ -30,7 +30,9 @@ _CATEGORY_EMOJI = {
 }
 
 
-def _fmt(amount: Decimal) -> str:
+def _fmt(amount) -> str:
+    if not isinstance(amount, Decimal):
+        amount = Decimal(str(amount))
     formatted = f"{amount:,.2f}"
     return "R$ " + formatted.replace(",", "X").replace(".", ",").replace("X", ".")
 

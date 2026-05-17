@@ -1141,26 +1141,13 @@ class WhatsappService:
     ) -> WhatsappMessage:
         from app.core.config import settings
         from app.core.exceptions import AIServiceError
+        from app.infrastructure.audio.local_whisper_provider import LocalWhisperProvider
         from app.infrastructure.audio.whisper_provider import WhisperProvider
 
         _FALLBACK = (
             "Desculpe, não consegui entender o áudio. "
             "Por favor, envie uma mensagem de texto."
         )
-
-        if not settings.OPENAI_API_KEY:
-            logger.warning("audio_no_openai_key", phone=phone_number)
-            await WhatsappService._try_send_reply(phone_number, _FALLBACK)
-            whatsapp_msg = WhatsappMessage(
-                phone_number=phone_number,
-                message_text="[áudio — OPENAI_API_KEY não configurada]",
-                message_type=MessageType.OTHER,
-                response_text=_FALLBACK,
-            )
-            db.add(whatsapp_msg)
-            await db.commit()
-            await db.refresh(whatsapp_msg)
-            return whatsapp_msg
 
         # ── Audio quality check ────────────────────────────────────────────
         if len(audio_bytes) < 3000:
@@ -1180,9 +1167,24 @@ class WhatsappService:
             await db.refresh(whatsapp_msg)
             return whatsapp_msg
 
+        # ── Transcription: local model preferred, API as fallback ─────────
         try:
-            text = await WhisperProvider().transcribe(audio_bytes, filename="audio.ogg")
-            logger.info("audio_transcribed", phone=phone_number, preview=text[:50])
+            if LocalWhisperProvider._model is not None:
+                text = await LocalWhisperProvider().transcribe(
+                    audio_bytes, filename="audio.ogg"
+                )
+                logger.info(
+                    "audio_transcribed_local", phone=phone_number, preview=text[:50]
+                )
+            elif settings.OPENAI_API_KEY:
+                text = await WhisperProvider().transcribe(
+                    audio_bytes, filename="audio.ogg"
+                )
+                logger.info(
+                    "audio_transcribed_api", phone=phone_number, preview=text[:50]
+                )
+            else:
+                raise RuntimeError("no_transcription_provider_available")
         except (AIServiceError, Exception) as exc:
             logger.warning(
                 "audio_transcription_failed", phone=phone_number, error=str(exc)
@@ -1238,6 +1240,8 @@ class WhatsappService:
         return list(result.scalars().all())
 
 
-def _fmt(amount: Decimal) -> str:
+def _fmt(amount) -> str:
+    if not isinstance(amount, Decimal):
+        amount = Decimal(str(amount))
     formatted = f"{amount:,.2f}"
     return "R$ " + formatted.replace(",", "X").replace(".", ",").replace("X", ".")

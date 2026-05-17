@@ -1,7 +1,8 @@
-"""Local Whisper provider — runs model in-process (no API call required).
+"""Local Whisper provider — runs model in-process using faster-whisper.
 
-Uses the openai-whisper package. The model is loaded once at startup and
-cached as a class variable so subsequent calls reuse the in-memory model.
+The model is loaded once at startup and cached as a class variable so
+subsequent calls reuse the in-memory model. Falls back gracefully if
+faster-whisper is not installed or the model cannot be loaded.
 """
 
 import asyncio
@@ -19,11 +20,13 @@ class LocalWhisperProvider:
 
     def __init__(self) -> None:
         if LocalWhisperProvider._model is None:
-            import whisper  # openai-whisper package
+            from faster_whisper import WhisperModel  # faster-whisper package
 
             size = settings.WHISPER_MODEL_SIZE
             logger.info("local_whisper_loading", size=size)
-            LocalWhisperProvider._model = whisper.load_model(size)
+            LocalWhisperProvider._model = WhisperModel(
+                size, device="cpu", compute_type="int8"
+            )
             logger.info("local_whisper_ready", size=size)
 
     async def transcribe(self, audio_bytes: bytes, filename: str = "audio.ogg") -> str:
@@ -46,5 +49,7 @@ class LocalWhisperProvider:
             os.unlink(tmp_path)
 
     def _transcribe_sync(self, audio_path: str) -> str:
-        result = LocalWhisperProvider._model.transcribe(audio_path, language="pt")
-        return result["text"].strip()
+        segments, _info = LocalWhisperProvider._model.transcribe(
+            audio_path, language="pt", beam_size=5
+        )
+        return " ".join(seg.text.strip() for seg in segments)
