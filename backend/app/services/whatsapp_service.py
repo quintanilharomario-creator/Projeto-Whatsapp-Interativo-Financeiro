@@ -136,11 +136,24 @@ class WhatsappService:
             response_text = await WhatsappService._handle_financial_intent(
                 fin_intent, fin_data, message_text, user, db
             )
+            _QUERY_INTENTS = {
+                FinancialIntent.BALANCE,
+                FinancialIntent.TEMPORAL_TODAY,
+                FinancialIntent.TEMPORAL_YESTERDAY,
+                FinancialIntent.TEMPORAL_WEEK,
+                FinancialIntent.TEMPORAL_MONTH,
+                FinancialIntent.TEMPORAL_LAST_MONTH,
+                FinancialIntent.CATEGORY_QUERY,
+                FinancialIntent.PLANNING,
+                FinancialIntent.INSIGHT,
+                FinancialIntent.GOAL_QUERY,
+            }
+            fin_msg_type = MessageType.QUERY if fin_intent in _QUERY_INTENTS else MessageType.OTHER
             return await WhatsappService._persist_and_reply(
                 phone_number,
                 user.id,
                 message_text,
-                MessageType.OTHER,
+                fin_msg_type,
                 response_text,
                 None,
                 db,
